@@ -22,6 +22,7 @@ class ReceiptBuilder:
         items: List[Dict[str, Any]],
         total: float,
         paid: float = 0.0,
+        discount_amount: float = 0.0,
     ) -> None:
         self.order_id = order_id
         self.cashier = cashier
@@ -29,6 +30,7 @@ class ReceiptBuilder:
         self.items = items
         self.total = total
         self.paid = paid
+        self.discount_amount = discount_amount
         self.change = max(0.0, paid - total)
         self.timestamp = now_str()
 
@@ -65,6 +67,15 @@ class ReceiptBuilder:
 
         lines += [
             sep,
+            f"{'SUBTOTAL':>{W - 9}} {fmt_currency(self.total + self.discount_amount):>8}",
+        ]
+
+        if self.discount_amount > 0:
+            lines.append(
+                f"{'DISCOUNT':>{W - 9}} -{fmt_currency(self.discount_amount):>7}"
+            )
+
+        lines += [
             f"{'TOTAL':>{W - 9}} {fmt_currency(self.total):>8}",
         ]
 

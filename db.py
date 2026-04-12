@@ -1,4 +1,4 @@
-"""Database layer: connection, schema, and all CRUD operations."""
+"""Database layer: connection, schema, migrations, and all CRUD operations."""
 
 from __future__ import annotations
 
@@ -12,10 +12,18 @@ from utils import hash_password, now_str
 class Database:
     """Manages the SQLite connection and all data operations."""
 
-    def __init__(self) -> None:
+    def __init__(self, db_name: Optional[str] = None) -> None:
+        """Create the database.
+
+        Args:
+            db_name: Path to the SQLite file, or ``":memory:"`` for tests.
+                     Defaults to the value of :data:`config.DB_NAME`.
+        """
+        self._db_name = db_name or DB_NAME
         self._conn: Optional[sqlite3.Connection] = None
         self.connect()
         self.init_schema()
+        self._migrate_schema()
         self.seed_default_admin()
 
     # ------------------------------------------------------------------
@@ -24,7 +32,7 @@ class Database:
 
     def connect(self) -> None:
         """Open (or re-open) the SQLite connection."""
-        self._conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+        self._conn = sqlite3.connect(self._db_name, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
@@ -66,12 +74,13 @@ class Database:
         );
 
         CREATE TABLE IF NOT EXISTS orders (
-            id             INTEGER PRIMARY KEY AUTOINCREMENT,
-            cashier_id     INTEGER NOT NULL,
-            cashier_name   TEXT    NOT NULL,
-            total          REAL    NOT NULL DEFAULT 0,
-            payment_method TEXT    NOT NULL,
-            created_at     TEXT    NOT NULL
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            cashier_id      INTEGER NOT NULL,
+            cashier_name    TEXT    NOT NULL,
+            total           REAL    NOT NULL DEFAULT 0,
+            discount_amount REAL    NOT NULL DEFAULT 0,
+            payment_method  TEXT    NOT NULL,
+            created_at      TEXT    NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS order_items (
@@ -82,6 +91,15 @@ class Database:
             quantity     INTEGER NOT NULL,
             unit_price   REAL    NOT NULL,
             subtotal     REAL    NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS discounts (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            code       TEXT    UNIQUE NOT NULL,
+            type       TEXT    NOT NULL CHECK(type IN ('percent','fixed')),
+            value      REAL    NOT NULL,
+            active     INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT    NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS audit_logs (
@@ -95,6 +113,17 @@ class Database:
         """
         self.conn.executescript(sql)
         self.conn.commit()
+
+    def _migrate_schema(self) -> None:
+        """Apply incremental schema migrations for older databases."""
+        existing_orders_cols = {
+            row[1] for row in self.conn.execute("PRAGMA table_info(orders)")
+        }
+        if "discount_amount" not in existing_orders_cols:
+            self.conn.execute(
+                "ALTER TABLE orders ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0"
+            )
+            self.conn.commit()
 
     def seed_default_admin(self) -> None:
         """Insert the default admin account if it does not exist."""
@@ -203,15 +232,6 @@ class Database:
         self.conn.execute("DELETE FROM products WHERE id=?", (product_id,))
         self.conn.commit()
 
-    def decrement_stock(self, product_id: int, qty: int) -> None:
-        """Reduce the stock of *product_id* by *qty*."""
-        ts = now_str()
-        self.conn.execute(
-            "UPDATE products SET stock = stock - ?, updated_at=? WHERE id=?",
-            (qty, ts, product_id),
-        )
-        self.conn.commit()
-
     # ------------------------------------------------------------------
     # Orders
     # ------------------------------------------------------------------
@@ -223,40 +243,74 @@ class Database:
         total: float,
         payment_method: str,
         items: List[Dict[str, Any]],
+        discount_amount: float = 0.0,
     ) -> int:
-        """Persist a new order with its items and decrement stock.
+        """Persist a new order with its items and decrement stock atomically.
+
+        The entire operation is wrapped in a single SQLite transaction so that
+        a crash mid-way cannot leave the database in a partially-updated state.
 
         Returns the new order ID.
         """
         ts = now_str()
-        cur = self.conn.execute(
-            "INSERT INTO orders"
-            " (cashier_id, cashier_name, total, payment_method, created_at)"
-            " VALUES (?,?,?,?,?)",
-            (cashier_id, cashier_name, total, payment_method, ts),
-        )
-        order_id = cur.lastrowid
-        for item in items:
-            self.conn.execute(
-                "INSERT INTO order_items"
-                " (order_id, product_id, product_name, quantity, unit_price, subtotal)"
+        with self.conn:
+            cur = self.conn.execute(
+                "INSERT INTO orders"
+                " (cashier_id, cashier_name, total, discount_amount, payment_method, created_at)"
                 " VALUES (?,?,?,?,?,?)",
-                (
-                    order_id,
-                    item["product_id"],
-                    item["product_name"],
-                    item["quantity"],
-                    item["unit_price"],
-                    item["subtotal"],
-                ),
+                (cashier_id, cashier_name, total, discount_amount, payment_method, ts),
             )
-            self.decrement_stock(item["product_id"], item["quantity"])
-        self.conn.commit()
+            order_id = cur.lastrowid
+            for item in items:
+                self.conn.execute(
+                    "INSERT INTO order_items"
+                    " (order_id, product_id, product_name, quantity, unit_price, subtotal)"
+                    " VALUES (?,?,?,?,?,?)",
+                    (
+                        order_id,
+                        item["product_id"],
+                        item["product_name"],
+                        item["quantity"],
+                        item["unit_price"],
+                        item["subtotal"],
+                    ),
+                )
+                self.conn.execute(
+                    "UPDATE products SET stock = stock - ?, updated_at=? WHERE id=?",
+                    (item["quantity"], ts, item["product_id"]),
+                )
         return order_id  # type: ignore[return-value]
 
     def get_all_orders(self) -> List[sqlite3.Row]:
         return self.conn.execute(
             "SELECT * FROM orders ORDER BY id DESC"
+        ).fetchall()
+
+    def get_orders_filtered(
+        self,
+        date_from: str = "",
+        date_to: str = "",
+        cashier: str = "",
+        payment: str = "",
+    ) -> List[sqlite3.Row]:
+        """Return orders matching the given filters (all optional)."""
+        clauses: List[str] = []
+        params: List[Any] = []
+        if date_from:
+            clauses.append("created_at >= ?")
+            params.append(date_from)
+        if date_to:
+            clauses.append("created_at <= ?")
+            params.append(date_to + " 23:59:59")
+        if cashier:
+            clauses.append("cashier_name LIKE ?")
+            params.append(f"%{cashier}%")
+        if payment:
+            clauses.append("payment_method = ?")
+            params.append(payment)
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        return self.conn.execute(
+            f"SELECT * FROM orders {where} ORDER BY id DESC", params
         ).fetchall()
 
     def get_order_by_id(self, order_id: int) -> Optional[sqlite3.Row]:
@@ -268,6 +322,50 @@ class Database:
         return self.conn.execute(
             "SELECT * FROM order_items WHERE order_id=?", (order_id,)
         ).fetchall()
+
+    # ------------------------------------------------------------------
+    # Discounts
+    # ------------------------------------------------------------------
+
+    def get_discount_by_code(self, code: str) -> Optional[sqlite3.Row]:
+        return self.conn.execute(
+            "SELECT * FROM discounts WHERE code=? AND active=1",
+            (code.strip().upper(),),
+        ).fetchone()
+
+    def get_all_discounts(self) -> List[sqlite3.Row]:
+        return self.conn.execute(
+            "SELECT * FROM discounts ORDER BY id DESC"
+        ).fetchall()
+
+    def add_discount(
+        self, code: str, dtype: str, value: float, active: bool = True
+    ) -> None:
+        ts = now_str()
+        self.conn.execute(
+            "INSERT INTO discounts (code, type, value, active, created_at)"
+            " VALUES (?,?,?,?,?)",
+            (code.strip().upper(), dtype, value, int(active), ts),
+        )
+        self.conn.commit()
+
+    def update_discount(
+        self,
+        discount_id: int,
+        code: str,
+        dtype: str,
+        value: float,
+        active: bool,
+    ) -> None:
+        self.conn.execute(
+            "UPDATE discounts SET code=?, type=?, value=?, active=? WHERE id=?",
+            (code.strip().upper(), dtype, value, int(active), discount_id),
+        )
+        self.conn.commit()
+
+    def delete_discount(self, discount_id: int) -> None:
+        self.conn.execute("DELETE FROM discounts WHERE id=?", (discount_id,))
+        self.conn.commit()
 
     # ------------------------------------------------------------------
     # Dashboard statistics

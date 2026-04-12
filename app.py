@@ -11,6 +11,7 @@ import tkinter as tk
 
 from config import APP_NAME
 from db import Database
+from logger import logger
 from ui.login import LoginWindow
 from ui.main import PosApp
 from utils import ensure_dirs
@@ -19,6 +20,7 @@ from utils import ensure_dirs
 def main() -> None:
     """Initialise directories, database, and the Tkinter event loop."""
     ensure_dirs()
+    logger.info("RezaFood POS starting up.")
 
     db = Database()
 
