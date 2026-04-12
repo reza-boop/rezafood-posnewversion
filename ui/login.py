@@ -34,7 +34,7 @@ class LoginWindow(tk.Toplevel):
         self.grab_set()
         self.transient(parent)
 
-        # Centre over the (hidden) root window
+        # Center over the (hidden) root window
         self.update_idletasks()
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
@@ -160,5 +160,5 @@ class LoginWindow(tk.Toplevel):
         self.on_success(user)
 
     def _on_close(self) -> None:
-        """Closing the login window exits the application."""
+        """Closing the login window exits the application (intentional)."""
         self.master.destroy()

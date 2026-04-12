@@ -180,7 +180,7 @@ class PosApp:
         self.root.configure(bg=THEME["bg"])
         self.root.geometry("1200x720")
         self.root.minsize(900, 600)
-        # Centre on screen
+        # Center on screen
         self.root.update_idletasks()
         sw = self.root.winfo_screenwidth()
         sh = self.root.winfo_screenheight()
@@ -451,7 +451,7 @@ class PosApp:
             maxvalue=product["stock"],
             parent=self.root,
         )
-        if not qty:
+        if qty is None:
             return
 
         # Check already in cart
@@ -569,8 +569,9 @@ class PosApp:
         )
         receipt_path = builder.save()
 
-        # Attempt to print
-        print_file(receipt_path)
+        # Attempt to print; notify the user if the print job could not be sent
+        printed = print_file(receipt_path)
+        print_note = "" if printed else "\n(Print job could not be sent — receipt saved to file.)"
 
         # Audit log
         self.db.add_audit_log(
@@ -582,7 +583,7 @@ class PosApp:
 
         messagebox.showinfo(
             "Order Complete",
-            f"Order #{order_id} saved!\nReceipt: {receipt_path}",
+            f"Order #{order_id} saved!\nReceipt: {receipt_path}{print_note}",
             parent=self.root,
         )
 

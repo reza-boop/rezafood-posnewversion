@@ -9,5 +9,5 @@
 # Windows: tkinter is bundled with the official Python installer.
 #
 # bcrypt is optional but recommended — if installed, passwords are hashed
-# with bcrypt instead of SHA-256.
+# with bcrypt instead of PBKDF2-HMAC-SHA256.
 bcrypt>=4.0.0

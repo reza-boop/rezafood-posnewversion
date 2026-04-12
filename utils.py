@@ -14,10 +14,9 @@ from typing import Any, Sequence
 
 from config import BACKUPS_DIR, DB_NAME, EXPORTS_DIR, RECEIPTS_DIR
 
-# Number of PBKDF2 iterations used for the SHA-256 fallback.  High enough to
-# be computationally expensive; bcrypt (when installed) is still preferred.
+# Number of PBKDF2 iterations used as the fallback when bcrypt is not installed.
+# High enough to be computationally expensive; bcrypt (when installed) is preferred.
 _PBKDF2_ITERATIONS = 400_000
-_PBKDF2_SALT_SEP = ":"  # separator between hex-encoded salt and digest in stored hash
 
 
 # ---------------------------------------------------------------------------
@@ -77,15 +76,13 @@ def hash_password(password: str) -> str:
         digest = hashlib.pbkdf2_hmac(
             "sha256", password.encode(), salt, _PBKDF2_ITERATIONS
         )
-        return f"pbkdf2:{salt.hex()}{_PBKDF2_SALT_SEP}{digest.hex()}"
+        return f"pbkdf2:{salt.hex()}:{digest.hex()}"
 
 
 def check_password(password: str, stored_hash: str) -> bool:
     """Verify *password* against *stored_hash*.
 
-    Handles bcrypt hashes (``$2…``), PBKDF2-HMAC hashes (``pbkdf2:…``), and
-    legacy plain SHA-256 hex digests for backwards compatibility with any
-    databases created before this version.
+    Handles bcrypt hashes (``$2…``) and PBKDF2-HMAC-SHA256 hashes (``pbkdf2:…``).
     """
     # bcrypt
     try:
@@ -95,11 +92,11 @@ def check_password(password: str, stored_hash: str) -> bool:
     except ImportError:
         pass
 
-    # PBKDF2-HMAC-SHA256 (current fallback)
+    # PBKDF2-HMAC-SHA256 fallback
     if stored_hash.startswith("pbkdf2:"):
         try:
             payload = stored_hash[len("pbkdf2:"):]
-            salt_hex, digest_hex = payload.split(_PBKDF2_SALT_SEP, 1)
+            salt_hex, digest_hex = payload.split(":", 1)
             salt = bytes.fromhex(salt_hex)
             expected = bytes.fromhex(digest_hex)
             candidate = hashlib.pbkdf2_hmac(
@@ -109,9 +106,7 @@ def check_password(password: str, stored_hash: str) -> bool:
         except Exception:
             return False
 
-    # Legacy: plain SHA-256 hex digest (databases created with older versions)
-    legacy = hashlib.sha256(password.encode()).hexdigest()
-    return hmac.compare_digest(legacy, stored_hash)
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -119,14 +114,21 @@ def check_password(password: str, stored_hash: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def open_folder(path: str) -> None:
-    """Open *path* in the OS file explorer (cross-platform)."""
+    """Open *path* in the OS file explorer (cross-platform).
+
+    Silently ignores errors if the OS command fails (e.g. no file manager
+    available).
+    """
     abs_path = os.path.abspath(path)
-    if sys.platform == "win32":
-        os.startfile(abs_path)  # type: ignore[attr-defined]
-    elif sys.platform == "darwin":
-        subprocess.Popen(["open", abs_path])
-    else:
-        subprocess.Popen(["xdg-open", abs_path])
+    try:
+        if sys.platform == "win32":
+            os.startfile(abs_path)  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", abs_path])
+        else:
+            subprocess.Popen(["xdg-open", abs_path])
+    except Exception:
+        pass
 
 
 def print_file(filepath: str) -> bool:
