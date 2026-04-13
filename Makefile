@@ -1,7 +1,7 @@
 # RezaFood POS — developer convenience targets
 .PHONY: run test lint backup clean
 
-PYTHON := python
+PYTHON := python3
 
 run:
 	$(PYTHON) app.py
