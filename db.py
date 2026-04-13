@@ -1,4 +1,9 @@
-"""Database layer: connection, schema, migrations, and all CRUD operations."""
+"""Database layer: connection, schema, migrations, and all CRUD operations.
+
+The CRUD logic lives in domain-specific repository classes under
+``repositories/``.  :class:`Database` wires everything together and exposes
+the same public API it always has, so no callers need to change.
+"""
 
 from __future__ import annotations
 
@@ -30,7 +35,12 @@ class ValidationError(DatabaseError):
 
 
 class Database:
-    """Manages the SQLite connection and all data operations."""
+    """Manages the SQLite connection and coordinates all repositories.
+
+    All public methods are kept identical to the original implementation so
+    that existing callers (UI tabs, services, tests) require no changes.
+    Internally each method delegates to the appropriate repository.
+    """
 
     def __init__(self, db_name: Optional[str] = None) -> None:
         """Create the database.
@@ -44,6 +54,7 @@ class Database:
         self.connect()
         self.init_schema()
         self._migrate_schema()
+        self._init_repositories()
         self.seed_default_admin()
 
     # ------------------------------------------------------------------
@@ -67,6 +78,28 @@ class Database:
         if self._conn:
             self._conn.close()
             self._conn = None
+
+    # ------------------------------------------------------------------
+    # Repositories
+    # ------------------------------------------------------------------
+
+    def _init_repositories(self) -> None:
+        """Instantiate all repository objects, sharing the open connection."""
+        # Import here to avoid circular imports at module level (repositories
+        # import DuplicateError from db).
+        from repositories.audit import AuditRepository
+        from repositories.discount import DiscountRepository
+        from repositories.order import OrderRepository
+        from repositories.product import ProductRepository
+        from repositories.report import ReportRepository
+        from repositories.user import UserRepository
+
+        self.users = UserRepository(self.conn)
+        self.products = ProductRepository(self.conn)
+        self.orders = OrderRepository(self.conn)
+        self.discounts = DiscountRepository(self.conn)
+        self.audit = AuditRepository(self.conn)
+        self.report = ReportRepository(self.conn)
 
     # ------------------------------------------------------------------
     # Schema
@@ -160,30 +193,17 @@ class Database:
             self.conn.commit()
 
     # ------------------------------------------------------------------
-    # Users
+    # Users — delegate to UserRepository
     # ------------------------------------------------------------------
 
     def get_user_by_username(self, username: str) -> Optional[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM users WHERE username=?", (username,)
-        ).fetchone()
+        return self.users.get_by_username(username)
 
     def get_all_users(self) -> List[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT id, username, role, created_at FROM users ORDER BY id"
-        ).fetchall()
+        return self.users.get_all()
 
     def add_user(self, username: str, password: str, role: str) -> None:
-        ts = now_str()
-        try:
-            self.conn.execute(
-                "INSERT INTO users (username, password_hash, role, created_at)"
-                " VALUES (?,?,?,?)",
-                (username, hash_password(password), role, ts),
-            )
-            self.conn.commit()
-        except sqlite3.IntegrityError as exc:
-            raise DuplicateError(f"Username '{username}' already exists.") from exc
+        self.users.add(username, password, role)
 
     def update_user(
         self,
@@ -192,53 +212,25 @@ class Database:
         password: Optional[str],
         role: str,
     ) -> None:
-        try:
-            if password:
-                self.conn.execute(
-                    "UPDATE users SET username=?, password_hash=?, role=? WHERE id=?",
-                    (username, hash_password(password), role, user_id),
-                )
-            else:
-                self.conn.execute(
-                    "UPDATE users SET username=?, role=? WHERE id=?",
-                    (username, role, user_id),
-                )
-            self.conn.commit()
-        except sqlite3.IntegrityError as exc:
-            raise DuplicateError(f"Username '{username}' already exists.") from exc
+        self.users.update(user_id, username, password, role)
 
     def delete_user(self, user_id: int) -> None:
-        self.conn.execute("DELETE FROM users WHERE id=?", (user_id,))
-        self.conn.commit()
+        self.users.delete(user_id)
 
     # ------------------------------------------------------------------
-    # Products
+    # Products — delegate to ProductRepository
     # ------------------------------------------------------------------
 
     def get_all_products(self) -> List[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM products ORDER BY category, name"
-        ).fetchall()
+        return self.products.get_all()
 
     def get_product_by_id(self, product_id: int) -> Optional[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM products WHERE id=?", (product_id,)
-        ).fetchone()
+        return self.products.get_by_id(product_id)
 
     def add_product(
         self, name: str, category: str, price: float, stock: int
     ) -> None:
-        ts = now_str()
-        try:
-            self.conn.execute(
-                "INSERT INTO products"
-                " (name, category, price, stock, created_at, updated_at)"
-                " VALUES (?,?,?,?,?,?)",
-                (name, category, price, stock, ts, ts),
-            )
-            self.conn.commit()
-        except sqlite3.IntegrityError as exc:
-            raise DuplicateError(f"Product '{name}' already exists.") from exc
+        self.products.add(name, category, price, stock)
 
     def update_product(
         self,
@@ -248,21 +240,13 @@ class Database:
         price: float,
         stock: int,
     ) -> None:
-        ts = now_str()
-        self.conn.execute(
-            "UPDATE products"
-            " SET name=?, category=?, price=?, stock=?, updated_at=?"
-            " WHERE id=?",
-            (name, category, price, stock, ts, product_id),
-        )
-        self.conn.commit()
+        self.products.update(product_id, name, category, price, stock)
 
     def delete_product(self, product_id: int) -> None:
-        self.conn.execute("DELETE FROM products WHERE id=?", (product_id,))
-        self.conn.commit()
+        self.products.delete(product_id)
 
     # ------------------------------------------------------------------
-    # Orders
+    # Orders — delegate to OrderRepository
     # ------------------------------------------------------------------
 
     def create_order(
@@ -274,46 +258,12 @@ class Database:
         items: List[Dict[str, Any]],
         discount_amount: float = 0.0,
     ) -> int:
-        """Persist a new order with its items and decrement stock atomically.
-
-        The entire operation is wrapped in a single SQLite transaction so that
-        a crash mid-way cannot leave the database in a partially-updated state.
-
-        Returns the new order ID.
-        """
-        ts = now_str()
-        with self.conn:
-            cur = self.conn.execute(
-                "INSERT INTO orders"
-                " (cashier_id, cashier_name, total, discount_amount, payment_method, created_at)"
-                " VALUES (?,?,?,?,?,?)",
-                (cashier_id, cashier_name, total, discount_amount, payment_method, ts),
-            )
-            order_id = cur.lastrowid
-            for item in items:
-                self.conn.execute(
-                    "INSERT INTO order_items"
-                    " (order_id, product_id, product_name, quantity, unit_price, subtotal)"
-                    " VALUES (?,?,?,?,?,?)",
-                    (
-                        order_id,
-                        item["product_id"],
-                        item["product_name"],
-                        item["quantity"],
-                        item["unit_price"],
-                        item["subtotal"],
-                    ),
-                )
-                self.conn.execute(
-                    "UPDATE products SET stock = stock - ?, updated_at=? WHERE id=?",
-                    (item["quantity"], ts, item["product_id"]),
-                )
-        return order_id  # type: ignore[return-value]
+        return self.orders.create(
+            cashier_id, cashier_name, total, payment_method, items, discount_amount
+        )
 
     def get_all_orders(self) -> List[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM orders ORDER BY id DESC"
-        ).fetchall()
+        return self.orders.get_all()
 
     def get_orders_filtered(
         self,
@@ -322,66 +272,28 @@ class Database:
         cashier: str = "",
         payment: str = "",
     ) -> List[sqlite3.Row]:
-        """Return orders matching the given filters (all optional)."""
-        clauses: List[str] = []
-        params: List[Any] = []
-        if date_from:
-            clauses.append("created_at >= ?")
-            params.append(date_from)
-        if date_to:
-            clauses.append("created_at <= ?")
-            params.append(date_to + " 23:59:59")
-        if cashier:
-            clauses.append("cashier_name LIKE ?")
-            params.append(f"%{cashier}%")
-        if payment:
-            clauses.append("payment_method = ?")
-            params.append(payment)
-        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
-        return self.conn.execute(
-            f"SELECT * FROM orders {where} ORDER BY id DESC", params
-        ).fetchall()
+        return self.orders.get_filtered(date_from, date_to, cashier, payment)
 
     def get_order_by_id(self, order_id: int) -> Optional[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM orders WHERE id=?", (order_id,)
-        ).fetchone()
+        return self.orders.get_by_id(order_id)
 
     def get_order_items(self, order_id: int) -> List[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM order_items WHERE order_id=?", (order_id,)
-        ).fetchall()
+        return self.orders.get_items(order_id)
 
     # ------------------------------------------------------------------
-    # Discounts
+    # Discounts — delegate to DiscountRepository
     # ------------------------------------------------------------------
 
     def get_discount_by_code(self, code: str) -> Optional[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM discounts WHERE code=? AND active=1",
-            (code.strip().upper(),),
-        ).fetchone()
+        return self.discounts.get_by_code(code)
 
     def get_all_discounts(self) -> List[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM discounts ORDER BY id DESC"
-        ).fetchall()
+        return self.discounts.get_all()
 
     def add_discount(
         self, code: str, dtype: str, value: float, active: bool = True
     ) -> None:
-        ts = now_str()
-        try:
-            self.conn.execute(
-                "INSERT INTO discounts (code, type, value, active, created_at)"
-                " VALUES (?,?,?,?,?)",
-                (code.strip().upper(), dtype, value, int(active), ts),
-            )
-            self.conn.commit()
-        except sqlite3.IntegrityError as exc:
-            raise DuplicateError(
-                f"Discount code '{code.strip().upper()}' already exists."
-            ) from exc
+        self.discounts.add(code, dtype, value, active)
 
     def update_discount(
         self,
@@ -391,63 +303,35 @@ class Database:
         value: float,
         active: bool,
     ) -> None:
-        self.conn.execute(
-            "UPDATE discounts SET code=?, type=?, value=?, active=? WHERE id=?",
-            (code.strip().upper(), dtype, value, int(active), discount_id),
-        )
-        self.conn.commit()
+        self.discounts.update(discount_id, code, dtype, value, active)
 
     def delete_discount(self, discount_id: int) -> None:
-        self.conn.execute("DELETE FROM discounts WHERE id=?", (discount_id,))
-        self.conn.commit()
+        self.discounts.delete(discount_id)
 
     # ------------------------------------------------------------------
-    # Dashboard statistics
+    # Dashboard statistics — delegate to OrderRepository / ProductRepository / UserRepository
     # ------------------------------------------------------------------
 
     def get_today_stats(self, date: str) -> Dict[str, Any]:
-        """Return order count and total revenue for *date* ('YYYY-MM-DD')."""
-        row = self.conn.execute(
-            "SELECT COUNT(*) AS cnt, COALESCE(SUM(total), 0) AS revenue"
-            " FROM orders WHERE created_at LIKE ?",
-            (f"{date}%",),
-        ).fetchone()
-        return {"orders": row["cnt"], "revenue": row["revenue"]}
+        return self.orders.get_today_stats(date)
 
     def get_low_stock_products(self, threshold: int = 5) -> List[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM products WHERE stock <= ? ORDER BY stock",
-            (threshold,),
-        ).fetchall()
+        return self.products.get_low_stock(threshold)
 
     def get_top_products(self, limit: int = 5) -> List[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT product_name,"
-            "       SUM(quantity) AS total_qty,"
-            "       SUM(subtotal) AS total_revenue"
-            " FROM order_items"
-            " GROUP BY product_name"
-            " ORDER BY total_qty DESC"
-            " LIMIT ?",
-            (limit,),
-        ).fetchall()
+        return self.products.get_top(limit)
 
     def get_total_products(self) -> int:
-        row = self.conn.execute("SELECT COUNT(*) AS cnt FROM products").fetchone()
-        return row["cnt"]
+        return self.products.count()
 
     def get_total_users(self) -> int:
-        row = self.conn.execute("SELECT COUNT(*) AS cnt FROM users").fetchone()
-        return row["cnt"]
+        return self.users.count()
 
     def get_all_time_revenue(self) -> float:
-        row = self.conn.execute(
-            "SELECT COALESCE(SUM(total), 0) AS revenue FROM orders"
-        ).fetchone()
-        return row["revenue"]
+        return self.orders.get_all_time_revenue()
 
     # ------------------------------------------------------------------
-    # Audit logs
+    # Audit logs — delegate to AuditRepository
     # ------------------------------------------------------------------
 
     def add_audit_log(
@@ -457,15 +341,7 @@ class Database:
         action: str,
         details: str = "",
     ) -> None:
-        ts = now_str()
-        self.conn.execute(
-            "INSERT INTO audit_logs (user_id, username, action, details, created_at)"
-            " VALUES (?,?,?,?,?)",
-            (user_id, username, action, details, ts),
-        )
-        self.conn.commit()
+        self.audit.add(user_id, username, action, details)
 
     def get_audit_logs(self, limit: int = 500) -> List[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM audit_logs ORDER BY id DESC LIMIT ?", (limit,)
-        ).fetchall()
+        return self.audit.get_recent(limit)
