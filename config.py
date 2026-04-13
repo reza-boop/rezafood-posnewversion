@@ -68,4 +68,13 @@ MIN_PASSWORD_LENGTH = 6        # minimum password length enforced on new account
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
+import os as _os
+
 LOG_FILE = "logs/rezafood.log"
+LOG_MAX_BYTES = 5 * 1024 * 1024   # 5 MB per log file
+LOG_BACKUP_COUNT = 5               # keep up to 5 rotated files
+LOG_JSON = _os.getenv("REZAFOOD_LOG_JSON", "0") == "1"  # set to "1" for JSON logs
+
+# "development" → DEBUG level; anything else → INFO
+ENVIRONMENT = _os.getenv("REZAFOOD_ENV", "production").lower()
+LOG_LEVEL = "DEBUG" if ENVIRONMENT == "development" else "INFO"

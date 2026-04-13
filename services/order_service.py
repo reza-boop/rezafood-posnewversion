@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 
+from config import PAYMENT_METHODS
 from db import Database
 
 
@@ -38,6 +39,44 @@ class OrderService:
         return amount, round(subtotal - amount, 2)
 
     # ------------------------------------------------------------------
+    # Validation helpers
+    # ------------------------------------------------------------------
+
+    def _validate_items(self, items: List[Dict[str, Any]]) -> None:
+        """Raise :exc:`ValueError` if any item has invalid quantity or price."""
+        for item in items:
+            qty = int(item.get("quantity", 0))
+            price = float(item.get("unit_price", 0))
+            if qty <= 0:
+                name = item.get("product_name", "?")
+                raise ValueError(
+                    f"Item '{name}' has invalid quantity {qty}. Must be ≥ 1."
+                )
+            if price < 0:
+                name = item.get("product_name", "?")
+                raise ValueError(
+                    f"Item '{name}' has negative unit price {price}."
+                )
+
+    def _validate_stock(self, items: List[Dict[str, Any]]) -> None:
+        """Raise :exc:`ValueError` if any product has insufficient stock."""
+        for item in items:
+            pid = item.get("product_id")
+            if pid is None:
+                continue
+            product = self.db.get_product_by_id(int(pid))
+            if product is None:
+                raise ValueError(
+                    f"Product ID {pid} not found."
+                )
+            qty = int(item.get("quantity", 0))
+            if product["stock"] < qty:
+                raise ValueError(
+                    f"Insufficient stock for '{product['name']}': "
+                    f"requested {qty}, available {product['stock']}."
+                )
+
+    # ------------------------------------------------------------------
     # Order placement
     # ------------------------------------------------------------------
 
@@ -56,6 +95,15 @@ class OrderService:
         """
         if not items:
             raise ValueError("Cannot create an empty order.")
+
+        if payment_method not in PAYMENT_METHODS:
+            raise ValueError(
+                f"Invalid payment method '{payment_method}'. "
+                f"Must be one of: {', '.join(PAYMENT_METHODS)}."
+            )
+
+        self._validate_items(items)
+        self._validate_stock(items)
 
         subtotal = sum(float(i["subtotal"]) for i in items)
         total = max(0.0, round(subtotal - discount_amount, 2))

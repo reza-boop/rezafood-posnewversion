@@ -9,6 +9,26 @@ from config import DB_NAME
 from utils import hash_password, now_str
 
 
+# ---------------------------------------------------------------------------
+# Custom exceptions
+# ---------------------------------------------------------------------------
+
+class DatabaseError(Exception):
+    """Base class for all database-layer errors."""
+
+
+class NotFoundError(DatabaseError):
+    """Raised when a requested record does not exist."""
+
+
+class DuplicateError(DatabaseError):
+    """Raised when a unique-constraint violation would occur."""
+
+
+class ValidationError(DatabaseError):
+    """Raised when supplied data fails a database-level constraint."""
+
+
 class Database:
     """Manages the SQLite connection and all data operations."""
 
@@ -155,12 +175,15 @@ class Database:
 
     def add_user(self, username: str, password: str, role: str) -> None:
         ts = now_str()
-        self.conn.execute(
-            "INSERT INTO users (username, password_hash, role, created_at)"
-            " VALUES (?,?,?,?)",
-            (username, hash_password(password), role, ts),
-        )
-        self.conn.commit()
+        try:
+            self.conn.execute(
+                "INSERT INTO users (username, password_hash, role, created_at)"
+                " VALUES (?,?,?,?)",
+                (username, hash_password(password), role, ts),
+            )
+            self.conn.commit()
+        except sqlite3.IntegrityError as exc:
+            raise DuplicateError(f"Username '{username}' already exists.") from exc
 
     def update_user(
         self,
@@ -169,17 +192,20 @@ class Database:
         password: Optional[str],
         role: str,
     ) -> None:
-        if password:
-            self.conn.execute(
-                "UPDATE users SET username=?, password_hash=?, role=? WHERE id=?",
-                (username, hash_password(password), role, user_id),
-            )
-        else:
-            self.conn.execute(
-                "UPDATE users SET username=?, role=? WHERE id=?",
-                (username, role, user_id),
-            )
-        self.conn.commit()
+        try:
+            if password:
+                self.conn.execute(
+                    "UPDATE users SET username=?, password_hash=?, role=? WHERE id=?",
+                    (username, hash_password(password), role, user_id),
+                )
+            else:
+                self.conn.execute(
+                    "UPDATE users SET username=?, role=? WHERE id=?",
+                    (username, role, user_id),
+                )
+            self.conn.commit()
+        except sqlite3.IntegrityError as exc:
+            raise DuplicateError(f"Username '{username}' already exists.") from exc
 
     def delete_user(self, user_id: int) -> None:
         self.conn.execute("DELETE FROM users WHERE id=?", (user_id,))
@@ -203,13 +229,16 @@ class Database:
         self, name: str, category: str, price: float, stock: int
     ) -> None:
         ts = now_str()
-        self.conn.execute(
-            "INSERT INTO products"
-            " (name, category, price, stock, created_at, updated_at)"
-            " VALUES (?,?,?,?,?,?)",
-            (name, category, price, stock, ts, ts),
-        )
-        self.conn.commit()
+        try:
+            self.conn.execute(
+                "INSERT INTO products"
+                " (name, category, price, stock, created_at, updated_at)"
+                " VALUES (?,?,?,?,?,?)",
+                (name, category, price, stock, ts, ts),
+            )
+            self.conn.commit()
+        except sqlite3.IntegrityError as exc:
+            raise DuplicateError(f"Product '{name}' already exists.") from exc
 
     def update_product(
         self,
@@ -342,12 +371,17 @@ class Database:
         self, code: str, dtype: str, value: float, active: bool = True
     ) -> None:
         ts = now_str()
-        self.conn.execute(
-            "INSERT INTO discounts (code, type, value, active, created_at)"
-            " VALUES (?,?,?,?,?)",
-            (code.strip().upper(), dtype, value, int(active), ts),
-        )
-        self.conn.commit()
+        try:
+            self.conn.execute(
+                "INSERT INTO discounts (code, type, value, active, created_at)"
+                " VALUES (?,?,?,?,?)",
+                (code.strip().upper(), dtype, value, int(active), ts),
+            )
+            self.conn.commit()
+        except sqlite3.IntegrityError as exc:
+            raise DuplicateError(
+                f"Discount code '{code.strip().upper()}' already exists."
+            ) from exc
 
     def update_discount(
         self,

@@ -52,6 +52,28 @@ class TestReceiptBuild:
         assert "Burger" in text
         assert "Cola" in text
 
+    def test_thermal_width_default(self):
+        r = ReceiptBuilder(1, "cashier", "Cash", ITEMS, 21.98)
+        lines = r.build().splitlines()
+        assert all(len(line) <= 42 for line in lines)
+
+    def test_wide_format(self):
+        r = ReceiptBuilder(1, "cashier", "Cash", ITEMS, 21.98, format="wide")
+        assert r.width == 58
+        text = r.build()
+        assert "Burger" in text
+
+    def test_a4_format(self):
+        r = ReceiptBuilder(1, "cashier", "Cash", ITEMS, 21.98, format="a4")
+        assert r.width == 72
+        text = r.build()
+        assert "Burger" in text
+
+    def test_no_negative_change(self):
+        # paid less than total → change should be 0, not negative
+        r = ReceiptBuilder(1, "cashier", "Cash", ITEMS, 21.98, paid=10.00)
+        assert r.change == 0.0
+
 
 class TestReceiptSave:
     def test_save_creates_file(self, tmp_path, monkeypatch):
@@ -61,3 +83,9 @@ class TestReceiptSave:
         assert os.path.isfile(path)
         content = open(path).read()
         assert "Burger" in content
+
+    def test_save_wide_format(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("receipts.RECEIPTS_DIR", str(tmp_path))
+        r = ReceiptBuilder(8, "cashier", "Cash", ITEMS, 21.98, format="wide")
+        path = r.save()
+        assert os.path.isfile(path)

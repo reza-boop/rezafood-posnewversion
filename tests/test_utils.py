@@ -1,16 +1,20 @@
 """Unit tests for utils.py helpers."""
 
 import re
+import time
 
 import pytest
 
 from utils import (
+    RateLimiter,
+    Session,
     check_password,
     date_str,
     export_to_csv,
     fmt_currency,
     hash_password,
     now_str,
+    sanitize_input,
     time_stamp,
 )
 
@@ -75,3 +79,123 @@ class TestExportCsv:
         path = str(tmp_path / "sub" / "out.csv")
         export_to_csv(path, ["X"], [["val"]])
         assert open(path).read().strip() == "X\nval"
+
+
+class TestSanitizeInput:
+    def test_strips_control_chars(self):
+        assert sanitize_input("hello\x00world") == "helloworld"
+
+    def test_strips_newlines(self):
+        assert sanitize_input("line1\nline2") == "line1line2"
+
+    def test_truncates_to_max_length(self):
+        assert sanitize_input("a" * 300, max_length=10) == "a" * 10
+
+    def test_normal_text_unchanged(self):
+        text = "Normal text 123"
+        assert sanitize_input(text) == text
+
+    def test_unicode_preserved(self):
+        text = "سلام دنیا"
+        assert sanitize_input(text) == text
+
+
+class TestRateLimiter:
+    def test_not_locked_initially(self):
+        rl = RateLimiter(max_attempts=3, lockout_seconds=60)
+        assert not rl.is_locked("user1")
+
+    def test_locked_after_max_attempts(self):
+        rl = RateLimiter(max_attempts=3, lockout_seconds=60)
+        for _ in range(3):
+            rl.record_failure("user1")
+        assert rl.is_locked("user1")
+
+    def test_not_locked_before_max_attempts(self):
+        rl = RateLimiter(max_attempts=3, lockout_seconds=60)
+        rl.record_failure("user1")
+        rl.record_failure("user1")
+        assert not rl.is_locked("user1")
+
+    def test_reset_clears_lock(self):
+        rl = RateLimiter(max_attempts=3, lockout_seconds=60)
+        for _ in range(3):
+            rl.record_failure("user1")
+        rl.reset("user1")
+        assert not rl.is_locked("user1")
+
+    def test_different_keys_independent(self):
+        rl = RateLimiter(max_attempts=3, lockout_seconds=60)
+        for _ in range(3):
+            rl.record_failure("user1")
+        assert not rl.is_locked("user2")
+
+    def test_lockout_expires(self):
+        rl = RateLimiter(max_attempts=2, lockout_seconds=0)
+        rl.record_failure("u")
+        rl.record_failure("u")
+        # lockout_seconds=0 → should expire immediately
+        time.sleep(0.01)
+        assert not rl.is_locked("u")
+
+    def test_remaining_lockout_positive_when_locked(self):
+        rl = RateLimiter(max_attempts=2, lockout_seconds=60)
+        rl.record_failure("u")
+        rl.record_failure("u")
+        assert rl.remaining_lockout("u") > 0
+
+    def test_remaining_lockout_zero_when_not_locked(self):
+        rl = RateLimiter(max_attempts=5, lockout_seconds=60)
+        assert rl.remaining_lockout("u") == 0.0
+
+
+class TestSession:
+    def test_not_authenticated_initially(self):
+        s = Session()
+        assert not s.is_authenticated
+
+    def test_login_sets_attributes(self):
+        s = Session()
+        s.login(1, "alice", "admin")
+        assert s.is_authenticated
+        assert s.user_id == 1
+        assert s.username == "alice"
+        assert s.role == "admin"
+
+    def test_logout_clears_session(self):
+        s = Session()
+        s.login(1, "alice", "admin")
+        s.logout()
+        assert not s.is_authenticated
+        assert s.user_id is None
+
+    def test_is_admin(self):
+        s = Session()
+        s.login(1, "alice", "admin")
+        assert s.is_admin()
+
+    def test_cashier_not_admin(self):
+        s = Session()
+        s.login(2, "bob", "cashier")
+        assert not s.is_admin()
+
+    def test_not_expired_when_fresh(self):
+        s = Session(timeout_minutes=1)
+        s.login(1, "alice", "admin")
+        assert not s.is_expired()
+
+    def test_expired_after_timeout(self):
+        s = Session(timeout_minutes=0)  # 0 minutes = expires immediately
+        s.login(1, "alice", "admin")
+        time.sleep(0.01)
+        assert s.is_expired()
+
+    def test_touch_resets_timer(self):
+        s = Session(timeout_minutes=1)
+        s.login(1, "alice", "admin")
+        s.touch()
+        assert not s.is_expired()
+
+    def test_not_expired_when_not_logged_in(self):
+        s = Session(timeout_minutes=0)
+        assert not s.is_expired()

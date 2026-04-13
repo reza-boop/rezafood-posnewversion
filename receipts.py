@@ -3,16 +3,28 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Literal
 
 from config import APP_NAME, APP_VERSION, RECEIPTS_DIR
 from utils import fmt_currency, now_str
 
-_LINE_WIDTH = 42
+# Supported receipt widths (characters)
+_WIDTHS: Dict[str, int] = {
+    "thermal": 42,   # 80 mm thermal printer
+    "wide": 58,      # wider 80-column format
+    "a4": 72,        # A4 paper (monospace)
+}
+
+ReceiptFormat = Literal["thermal", "wide", "a4"]
 
 
 class ReceiptBuilder:
-    """Builds and saves plain-text receipts for a completed order."""
+    """Builds and saves plain-text receipts for a completed order.
+
+    Args:
+        format: One of ``"thermal"`` (default, 42 chars), ``"wide"`` (58 chars),
+                or ``"a4"`` (72 chars).
+    """
 
     def __init__(
         self,
@@ -23,6 +35,7 @@ class ReceiptBuilder:
         total: float,
         paid: float = 0.0,
         discount_amount: float = 0.0,
+        format: ReceiptFormat = "thermal",
     ) -> None:
         self.order_id = order_id
         self.cashier = cashier
@@ -33,6 +46,7 @@ class ReceiptBuilder:
         self.discount_amount = discount_amount
         self.change = max(0.0, paid - total)
         self.timestamp = now_str()
+        self.width = _WIDTHS.get(format, _WIDTHS["thermal"])
 
     # ------------------------------------------------------------------
     # Building
@@ -40,9 +54,16 @@ class ReceiptBuilder:
 
     def build(self) -> str:
         """Return the receipt as a multi-line string."""
-        W = _LINE_WIDTH
+        W = self.width
         sep = "-" * W
         eq = "=" * W
+
+        # Name column width scales with total width; always leave room for
+        # Qty (4), Price (9), Sub (9) + 3 spaces = 25 chars minimum for W=42
+        name_col = max(16, W - 25)
+        header_row = (
+            f"{'Item':<{name_col}} {'Qty':>4} {'Price':>9} {'Sub':>9}"
+        )
 
         lines: List[str] = [
             eq,
@@ -52,37 +73,38 @@ class ReceiptBuilder:
             f"Date    : {self.timestamp}",
             f"Cashier : {self.cashier}",
             sep,
-            f"{'Item':<20} {'Qty':>4} {'Price':>8} {'Sub':>8}",
+            header_row,
             sep,
         ]
 
         for item in self.items:
-            name = str(item.get("product_name", ""))[:19]
+            name = str(item.get("product_name", ""))[:name_col]
             qty = int(item.get("quantity", 0))
             price = float(item.get("unit_price", 0))
             sub = float(item.get("subtotal", 0))
             lines.append(
-                f"{name:<20} {qty:>4} {fmt_currency(price):>8} {fmt_currency(sub):>8}"
+                f"{name:<{name_col}} {qty:>4} {fmt_currency(price):>9}"
+                f" {fmt_currency(sub):>9}"
             )
 
         lines += [
             sep,
-            f"{'SUBTOTAL':>{W - 9}} {fmt_currency(self.total + self.discount_amount):>8}",
+            f"{'SUBTOTAL':>{W - 10}} {fmt_currency(self.total + self.discount_amount):>9}",
         ]
 
         if self.discount_amount > 0:
             lines.append(
-                f"{'DISCOUNT':>{W - 9}} -{fmt_currency(self.discount_amount):>7}"
+                f"{'DISCOUNT':>{W - 10}} -{fmt_currency(self.discount_amount):>8}"
             )
 
         lines += [
-            f"{'TOTAL':>{W - 9}} {fmt_currency(self.total):>8}",
+            f"{'TOTAL':>{W - 10}} {fmt_currency(self.total):>9}",
         ]
 
         if self.paid > 0:
             lines += [
-                f"{'PAID':>{W - 9}} {fmt_currency(self.paid):>8}",
-                f"{'CHANGE':>{W - 9}} {fmt_currency(self.change):>8}",
+                f"{'PAID':>{W - 10}} {fmt_currency(self.paid):>9}",
+                f"{'CHANGE':>{W - 10}} {fmt_currency(self.change):>9}",
             ]
 
         lines += [
