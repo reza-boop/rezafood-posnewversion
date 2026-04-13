@@ -46,11 +46,11 @@ jobs:
         run: pip install ruff flake8
       - name: Lint with ruff
         run: |
-          ruff check . --exclude ui/,app.py
+          ruff check . --exclude ui --exclude app.py
       - name: Lint with flake8 (fallback / CI gate)
         run: |
           flake8 . --max-line-length=100 \
-            --exclude=.git,__pycache__,logs,backups,exports,receipts,ui \
+            --exclude=.git,__pycache__,logs,backups,exports,receipts,ui,app.py \
             --extend-ignore=E501
             
   typecheck:

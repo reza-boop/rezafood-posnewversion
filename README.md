@@ -35,7 +35,7 @@ Runtime directories (created automatically, excluded from git):
 
 ## Requirements
 
-- Python **3.10** or newer
+- Python **3.9** or newer
 - `tkinter` — included with the official Python installer on Windows
 - `bcrypt` *(optional)* — for stronger password hashing
 
