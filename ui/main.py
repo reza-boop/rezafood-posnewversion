@@ -20,9 +20,12 @@ from config import (
 )
 from db import Database
 from logger import logger
+import config_store
+from services.backup_service import BackupService
 from services.order_service import OrderService
 from services.product_service import ProductService
 from services.report_service import ReportService
+from services.sync_service import SyncService
 from ui.tabs import BaseTab
 from ui.tabs.audit import AuditTab
 from ui.tabs.dashboard import DashboardTab
@@ -48,6 +51,8 @@ class PosApp:
         self.order_service = OrderService(db)
         self.product_service = ProductService(db)
         self.report_service = ReportService(db)
+        self.backup_service = BackupService()
+        self.sync_service = SyncService(on_change=self._on_sync_change)
 
         # Tab registry
         self._tabs: Dict[str, BaseTab] = {}
@@ -57,6 +62,7 @@ class PosApp:
         self._setup_keyboard_shortcuts()
         self._setup_session_timeout()
         self._initial_refresh()
+        self._restore_background_services()
 
         logger.info("User '%s' opened main window.", user["username"])
 
@@ -162,6 +168,24 @@ class PosApp:
         for tab in self._tabs.values():
             tab.refresh()
 
+    def _restore_background_services(self) -> None:
+        """Re-start auto-backup and sync if they were enabled in a previous session."""
+        settings = config_store.load()
+        if settings.get("auto_backup_enabled") and self.is_admin:
+            interval = int(settings.get("auto_backup_interval_minutes", 60))
+            remote = settings.get("remote_backup_path", "")
+            self.backup_service.start_auto_backup(interval, remote)
+            logger.info("Auto-backup restored: every %d min → '%s'", interval, remote)
+
+        if settings.get("sync_enabled"):
+            path = settings.get("sync_shared_db_path", "")
+            poll = int(settings.get("sync_poll_interval_seconds", 30))
+            try:
+                self.sync_service.start(path, poll_seconds=poll)
+                logger.info("Sync restored: monitoring '%s' every %ds", path, poll)
+            except Exception as exc:
+                logger.warning("Could not restore sync: %s", exc)
+
     # ------------------------------------------------------------------
     # Keyboard shortcuts
     # ------------------------------------------------------------------
@@ -258,6 +282,24 @@ class PosApp:
         self._schedule_session_check()
 
     # ------------------------------------------------------------------
+    # Sync change callback
+    # ------------------------------------------------------------------
+
+    def _on_sync_change(self) -> None:
+        """Called from the SyncService polling thread when a remote change is detected."""
+        # Schedule UI refresh on the main thread (Tkinter is not thread-safe)
+        self.root.after(0, self._refresh_all_tabs)
+
+    def _refresh_all_tabs(self) -> None:
+        """Refresh every registered tab (called from main thread)."""
+        self.product_service.invalidate_cache()
+        for tab in self._tabs.values():
+            try:
+                tab.refresh()
+            except Exception:
+                pass
+
+    # ------------------------------------------------------------------
     # Logout
     # ------------------------------------------------------------------
 
@@ -267,6 +309,8 @@ class PosApp:
         ):
             if self._session_after_id:
                 self.root.after_cancel(self._session_after_id)
+            self.backup_service.stop_auto_backup()
+            self.sync_service.stop()
             self.db.add_audit_log(
                 self.user["id"], self.user["username"], "logout", ""
             )

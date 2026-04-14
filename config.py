@@ -1,7 +1,7 @@
 """Application-wide constants and theme configuration for RezaFood POS."""
 
 APP_NAME = "RezaFood POS"
-APP_VERSION = "11.3"
+APP_VERSION = "12.0"
 
 DB_NAME = "rezafood.db"
 RECEIPTS_DIR = "receipts"
