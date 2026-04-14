@@ -277,6 +277,7 @@ class PosApp:
                 "Please log in again.",
                 parent=self.root,
             )
+            self.shutdown()
             self.root.destroy()
             return
         self._schedule_session_check()
@@ -300,6 +301,23 @@ class PosApp:
                 pass
 
     # ------------------------------------------------------------------
+    # Shutdown helpers
+    # ------------------------------------------------------------------
+
+    def shutdown(self) -> None:
+        """Stop all background services and cancel the session check timer.
+
+        Called from :meth:`_logout`, :meth:`_check_session` (on expiry), and
+        from the window-close handler in ``app.py`` so that every exit path
+        reliably tears down the backup and sync threads.
+        """
+        if self._session_after_id:
+            self.root.after_cancel(self._session_after_id)
+            self._session_after_id = None
+        self.backup_service.stop_auto_backup()
+        self.sync_service.stop()
+
+    # ------------------------------------------------------------------
     # Logout
     # ------------------------------------------------------------------
 
@@ -307,10 +325,7 @@ class PosApp:
         if messagebox.askyesno(
             "Logout", "Log out and return to login screen?", parent=self.root
         ):
-            if self._session_after_id:
-                self.root.after_cancel(self._session_after_id)
-            self.backup_service.stop_auto_backup()
-            self.sync_service.stop()
+            self.shutdown()
             self.db.add_audit_log(
                 self.user["id"], self.user["username"], "logout", ""
             )

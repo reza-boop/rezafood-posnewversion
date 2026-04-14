@@ -23,9 +23,14 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from typing import Any, Dict
 
 _SETTINGS_FILE = "rezafood_settings.json"
+
+# Module-level lock so that concurrent set() calls never interleave their
+# read-modify-write cycle and lose each other's updates.
+_lock = threading.Lock()
 
 # Default values for every recognised key.
 _DEFAULTS: Dict[str, Any] = {
@@ -68,7 +73,8 @@ def get(key: str) -> Any:
 
 
 def set(key: str, value: Any) -> None:  # noqa: A001
-    """Persist a single *key* / *value* pair."""
-    data = load()
-    data[key] = value
-    save(data)
+    """Persist a single *key* / *value* pair (thread-safe)."""
+    with _lock:
+        data = load()
+        data[key] = value
+        save(data)

@@ -35,15 +35,16 @@ def main() -> None:
 
         # Build a fresh Tk window for the main app
         app_root = tk.Tk()
-        PosApp(app_root, db, user)
-        app_root.protocol("WM_DELETE_WINDOW", lambda: _on_close(app_root, db))
+        pos_app = PosApp(app_root, db, user)
+        app_root.protocol("WM_DELETE_WINDOW", lambda: _on_close(app_root, pos_app))
         app_root.mainloop()
 
         # After the main window closes, re-open the login dialog so another
         # user can log in without restarting the process.
         _restart_login(root, db)
 
-    def _on_close(window: tk.Tk, database: Database) -> None:
+    def _on_close(window: tk.Tk, pos_app: PosApp) -> None:
+        pos_app.shutdown()
         window.destroy()
 
     def _restart_login(parent: tk.Tk, database: Database) -> None:

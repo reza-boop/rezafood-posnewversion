@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 
 import pytest
 
@@ -54,3 +55,24 @@ class TestConfigStore:
             f.write("not valid json {{")
         data = config_store.load()
         assert data == config_store._DEFAULTS
+
+    def test_set_is_thread_safe(self):
+        """Concurrent set() calls must not lose each other's updates."""
+        keys = [f"key_{i}" for i in range(20)]
+        errors: list[Exception] = []
+
+        def writer(key: str) -> None:
+            try:
+                config_store.set(key, True)
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=writer, args=(k,)) for k in keys]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors, f"Unexpected errors during concurrent set(): {errors}"
+        for key in keys:
+            assert config_store.get(key) is True, f"Key '{key}' was lost after concurrent writes"
