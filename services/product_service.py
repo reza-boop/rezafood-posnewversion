@@ -65,6 +65,34 @@ class ProductService:
             return "Stock cannot be negative."
         return ""
 
+    # ------------------------------------------------------------------
+    # Mutating helpers (invalidate cache automatically)
+    # ------------------------------------------------------------------
+
+    def add_product(
+        self, name: str, category: str, price: float, stock: int
+    ) -> None:
+        """Add a new product and invalidate the product cache."""
+        self.db.add_product(name, category, price, stock)
+        self.invalidate_cache()
+
+    def update_product(
+        self,
+        product_id: int,
+        name: str,
+        category: str,
+        price: float,
+        stock: int,
+    ) -> None:
+        """Update a product and invalidate the product cache."""
+        self.db.update_product(product_id, name, category, price, stock)
+        self.invalidate_cache()
+
+    def delete_product(self, product_id: int) -> None:
+        """Delete a product and invalidate the product cache."""
+        self.db.delete_product(product_id)
+        self.invalidate_cache()
+
     def low_stock_count(self) -> int:
         """Return the number of products at or below the low-stock threshold."""
         return len(self.db.get_low_stock_products(LOW_STOCK_THRESHOLD))

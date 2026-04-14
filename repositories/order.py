@@ -51,10 +51,18 @@ class OrderRepository(BaseRepository):
                         item["subtotal"],
                     ),
                 )
-                self.conn.execute(
-                    "UPDATE products SET stock = stock - ?, updated_at=? WHERE id=?",
-                    (item["quantity"], ts, item["product_id"]),
+                cur2 = self.conn.execute(
+                    "UPDATE products"
+                    " SET stock = stock - ?, updated_at=?"
+                    " WHERE id=? AND stock >= ?",
+                    (item["quantity"], ts, item["product_id"], item["quantity"]),
                 )
+                if cur2.rowcount == 0:
+                    raise ValueError(
+                        f"Insufficient stock for '{item['product_name']}': "
+                        f"requested {item['quantity']} but stock was depleted "
+                        f"(possible concurrent sale)."
+                    )
         return order_id  # type: ignore[return-value]
 
     def get_all(self) -> List[sqlite3.Row]:

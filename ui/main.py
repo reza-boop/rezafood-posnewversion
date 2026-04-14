@@ -171,11 +171,13 @@ class PosApp:
 
         F1  — switch to POS tab and focus product search
         F2  — trigger checkout (only when on POS tab)
+        F3  — switch to POS tab and focus barcode entry
         F5  — refresh the currently visible tab
         Esc — clear the cart (only when on POS tab)
         """
         self.root.bind("<F1>", self._kb_focus_search)
         self.root.bind("<F2>", self._kb_checkout)
+        self.root.bind("<F3>", self._kb_focus_barcode)
         self.root.bind("<F5>", self._kb_refresh)
         self.root.bind("<Escape>", self._kb_clear_cart)
 
@@ -183,6 +185,11 @@ class PosApp:
         pos = self._tabs.get("pos")
         if pos:
             pos.focus_search()  # type: ignore[attr-defined]
+
+    def _kb_focus_barcode(self, _event=None) -> None:
+        pos = self._tabs.get("pos")
+        if pos:
+            pos.focus_barcode()  # type: ignore[attr-defined]
 
     def _kb_checkout(self, _event=None) -> None:
         pos = self._tabs.get("pos")

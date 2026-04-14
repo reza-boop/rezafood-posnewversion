@@ -55,11 +55,15 @@ class ProductsTab(BaseTab):
             )
 
     def _add(self) -> None:
+        if not self._assert_session_active():
+            return
         dlg = ProductDialog(self.root)
         if dlg.result:
             r = dlg.result
             try:
-                self.db.add_product(r["name"], r["category"], r["price"], r["stock"])
+                self.app.product_service.add_product(
+                    r["name"], r["category"], r["price"], r["stock"]
+                )
                 self.db.add_audit_log(
                     self.user["id"], self.user["username"],
                     "add_product", f"name={r['name']}",
@@ -70,6 +74,8 @@ class ProductsTab(BaseTab):
                 messagebox.showerror("Error", str(exc), parent=self.root)
 
     def _edit(self) -> None:
+        if not self._assert_session_active():
+            return
         sel = self._tree.selection()
         if not sel:
             messagebox.showinfo("Select Product", "Select a product to edit.", parent=self.root)
@@ -82,7 +88,7 @@ class ProductsTab(BaseTab):
         if dlg.result:
             r = dlg.result
             try:
-                self.db.update_product(
+                self.app.product_service.update_product(
                     product_id, r["name"], r["category"], r["price"], r["stock"]
                 )
                 self.db.add_audit_log(
@@ -95,6 +101,8 @@ class ProductsTab(BaseTab):
                 messagebox.showerror("Error", str(exc), parent=self.root)
 
     def _delete(self) -> None:
+        if not self._assert_session_active():
+            return
         sel = self._tree.selection()
         if not sel:
             messagebox.showinfo("Select Product", "Select a product to delete.", parent=self.root)
@@ -109,7 +117,7 @@ class ProductsTab(BaseTab):
             parent=self.root,
         ):
             return
-        self.db.delete_product(product_id)
+        self.app.product_service.delete_product(product_id)
         self.db.add_audit_log(
             self.user["id"], self.user["username"],
             "delete_product", f"id={product_id} name={row['name']}",

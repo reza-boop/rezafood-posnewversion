@@ -9,22 +9,8 @@
 from __future__ import annotations
 
 from datetime import datetime
-from tkinter import messagebox
-from tkinter import messagebox, simpledialog
-from tkinter import messagebox, ttk
-from tkinter import ttk
-from typing import Any, Dict, List, Literal
-from typing import Any, Dict, List, Optional
-from typing import Any, Dict, List, Optional, Tuple
-from typing import Any, Dict, List, Tuple
-from typing import Any, Optional, Sequence
-from typing import Callable, ClassVar, Dict
-from typing import Dict, Optional
-from typing import List, Optional
-from typing import Optional
-from typing import TYPE_CHECKING
-from typing import TYPE_CHECKING, Any, Dict, List
-from typing import TYPE_CHECKING, Dict
+from tkinter import messagebox, simpledialog, ttk
+from typing import Any, Callable, ClassVar, Dict, List, Literal, Optional, Sequence, Tuple, TYPE_CHECKING
 import csv
 import hashlib
 import hmac

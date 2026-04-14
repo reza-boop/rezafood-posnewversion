@@ -32,13 +32,50 @@ class PosTab(BaseTab):
     # ------------------------------------------------------------------
 
     def _build(self) -> None:
-        # Left: product grid + search
+        from config import CATEGORIES
+
+        # Left: product grid + search + category filters + barcode
         left = tk.Frame(self, bg=THEME["bg"], width=480)
         left.pack(side="left", fill="both", expand=True, padx=(8, 4), pady=8)
         left.pack_propagate(False)
 
+        # --- Barcode input row (F3 shortcut focuses it) ---
+        barcode_row = tk.Frame(left, bg=THEME["bg"])
+        barcode_row.pack(fill="x", pady=(0, 4))
+        tk.Label(
+            barcode_row, text="🔍 Barcode:", font=FONT["bold"],
+            bg=THEME["bg"], fg=THEME["fg"],
+        ).pack(side="left")
+        self._barcode_var = tk.StringVar()
+        self._barcode_entry = tk.Entry(
+            barcode_row,
+            textvariable=self._barcode_var,
+            font=FONT["default"],
+            bg=THEME["entry_bg"],
+            fg=THEME["entry_fg"],
+            insertbackground=THEME["fg"],
+            relief="flat",
+            bd=5,
+            width=18,
+        )
+        self._barcode_entry.pack(side="left", padx=(6, 0))
+        self._barcode_entry.bind("<Return>", lambda _e: self._add_by_barcode())
+        tk.Button(
+            barcode_row,
+            text="Add",
+            font=FONT["bold"],
+            bg=THEME["accent"],
+            fg=THEME["bg"],
+            relief="flat",
+            padx=8,
+            pady=3,
+            cursor="hand2",
+            command=self._add_by_barcode,
+        ).pack(side="left", padx=(4, 0))
+
+        # --- Search row ---
         search_row = tk.Frame(left, bg=THEME["bg"])
-        search_row.pack(fill="x", pady=(0, 6))
+        search_row.pack(fill="x", pady=(0, 4))
         tk.Label(
             search_row, text="Search:", font=FONT["bold"],
             bg=THEME["bg"], fg=THEME["fg"],
@@ -57,27 +94,51 @@ class PosTab(BaseTab):
         )
         self._search_entry.pack(side="left", fill="x", expand=True, padx=(6, 0))
 
+        # --- Category filter buttons (F4-F9 shortcuts) ---
+        cat_row = tk.Frame(left, bg=THEME["bg"])
+        cat_row.pack(fill="x", pady=(0, 4))
+        self._active_category: str = ""
+        all_btn = tk.Button(
+            cat_row, text="All", font=FONT["bold"],
+            bg=THEME["accent"], fg=THEME["bg"],
+            relief="flat", padx=8, pady=2, cursor="hand2",
+            command=lambda: self._set_category(""),
+        )
+        all_btn.pack(side="left", padx=(0, 2))
+        self._cat_buttons: dict = {"": all_btn}
+        for cat in CATEGORIES:
+            c = cat  # capture
+            b = tk.Button(
+                cat_row, text=cat, font=FONT["bold"],
+                bg=THEME["surface2"], fg=THEME["fg"],
+                relief="flat", padx=8, pady=2, cursor="hand2",
+                command=lambda _c=c: self._set_category(_c),
+            )
+            b.pack(side="left", padx=2)
+            self._cat_buttons[cat] = b
+
         section_label(left, "Products").pack(anchor="w")
         self._prod_tree = styled_tree(
             left,
             ["ID", "Name", "Category", "Price", "Stock"],
             [40, 180, 100, 80, 60],
-            height=16,
+            height=14,
         )
         self._prod_tree.bind("<Double-1>", lambda _e: self._add_to_cart())
+        self._prod_tree.bind("<Return>", lambda _e: self._add_to_cart())
 
         tk.Button(
             left,
-            text="+ Add to Cart",
+            text="+ Add to Cart  (Enter)",
             font=FONT["bold"],
             bg=THEME["accent2"],
             fg=THEME["bg"],
             relief="flat",
             padx=10,
-            pady=6,
+            pady=8,
             cursor="hand2",
             command=self._add_to_cart,
-        ).pack(pady=(6, 0))
+        ).pack(fill="x", pady=(6, 0))
 
         # Right: cart
         right = tk.Frame(self, bg=THEME["surface"], width=380)
@@ -196,13 +257,13 @@ class PosTab(BaseTab):
 
         tk.Button(
             right,
-            text="  Checkout  ",
+            text="  ✔  Checkout  (F2)  ",
             font=FONT["title"],
             bg=THEME["accent2"],
             fg=THEME["bg"],
             activebackground=THEME["accent"],
             relief="flat",
-            pady=12,
+            pady=16,
             cursor="hand2",
             command=self._checkout,
         ).pack(fill="x", padx=8, pady=(4, 10))
@@ -220,6 +281,11 @@ class PosTab(BaseTab):
         self.app.notebook.select(self)
         self._search_entry.focus_set()
 
+    def focus_barcode(self) -> None:
+        """Switch notebook to this tab and focus the barcode entry."""
+        self.app.notebook.select(self)
+        self._barcode_entry.focus_set()
+
     def trigger_checkout(self) -> None:
         self._checkout()
 
@@ -227,13 +293,104 @@ class PosTab(BaseTab):
         self._clear_cart()
 
     # ------------------------------------------------------------------
+    # Category filter
+    # ------------------------------------------------------------------
+
+    def _set_category(self, category: str) -> None:
+        self._active_category = category
+        for cat, btn_widget in self._cat_buttons.items():
+            if cat == category:
+                btn_widget.configure(bg=THEME["accent"], fg=THEME["bg"])
+            else:
+                btn_widget.configure(bg=THEME["surface2"], fg=THEME["fg"])
+        self._filter_products()
+
+    # ------------------------------------------------------------------
+    # Barcode lookup
+    # ------------------------------------------------------------------
+
+    def _add_by_barcode(self) -> None:
+        """Look up a product by exact name match from the barcode field and add to cart."""
+        query = self._barcode_var.get().strip()
+        if not query:
+            return
+        matches = [
+            p for p in self._products_cache
+            if p["name"].lower() == query.lower()
+        ]
+        if not matches:
+            # Fall back to partial match
+            matches = [
+                p for p in self._products_cache
+                if query.lower() in p["name"].lower()
+            ]
+        if not matches:
+            messagebox.showwarning(
+                "Not Found",
+                f"No product found matching '{query}'.",
+                parent=self.root,
+            )
+            self._barcode_var.set("")
+            return
+        if len(matches) > 1:
+            messagebox.showinfo(
+                "Multiple Matches",
+                f"'{query}' matches {len(matches)} products.\n"
+                "Use the search box to narrow down, then double-click.",
+                parent=self.root,
+            )
+            self._search_var.set(query)
+            self._barcode_var.set("")
+            return
+        product = matches[0]
+        if product["stock"] <= 0:
+            messagebox.showwarning(
+                "Out of Stock",
+                f"'{product['name']}' is out of stock.",
+                parent=self.root,
+            )
+            self._barcode_var.set("")
+            return
+        # Add 1 unit directly (typical barcode-scanner workflow)
+        for item in self._cart:
+            if item["product_id"] == product["id"]:
+                new_qty = item["quantity"] + 1
+                if new_qty > product["stock"]:
+                    messagebox.showwarning(
+                        "Insufficient Stock",
+                        f"Only {product['stock']} units available.",
+                        parent=self.root,
+                    )
+                    self._barcode_var.set("")
+                    return
+                item["quantity"] = new_qty
+                item["subtotal"] = item["unit_price"] * new_qty
+                self._render_cart()
+                self._barcode_var.set("")
+                return
+        self._cart.append(
+            {
+                "product_id": product["id"],
+                "product_name": product["name"],
+                "quantity": 1,
+                "unit_price": product["price"],
+                "subtotal": product["price"],
+            }
+        )
+        self._render_cart()
+        self._barcode_var.set("")
+
+    # ------------------------------------------------------------------
     # Product list
     # ------------------------------------------------------------------
 
     def _filter_products(self) -> None:
         query = self._search_var.get().strip().lower()
+        cat_filter = getattr(self, "_active_category", "")
         self._prod_tree.delete(*self._prod_tree.get_children())
         for i, p in enumerate(self._products_cache):
+            if cat_filter and p["category"] != cat_filter:
+                continue
             if query and query not in p["name"].lower() and query not in p["category"].lower():
                 continue
             tag = "even" if i % 2 == 0 else "odd"
@@ -390,6 +547,8 @@ class PosTab(BaseTab):
     # ------------------------------------------------------------------
 
     def _checkout(self) -> None:
+        if not self._assert_session_active():
+            return
         if not self._cart:
             messagebox.showinfo(
                 "Empty Cart", "Add items to the cart first.", parent=self.root
@@ -475,6 +634,7 @@ class PosTab(BaseTab):
         self._coupon_var.set("")
         self._cash_paid_var.set("0")
         self._render_cart()
+        self.app.product_service.invalidate_cache()
         self.refresh()
 
         # Refresh related tabs

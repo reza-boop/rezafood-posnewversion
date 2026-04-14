@@ -207,6 +207,24 @@ class TestOrderRepository:
         db.orders.create(1, "admin", 8.00, "Cash", items)
         assert db.orders.get_all_time_revenue() == 8.00
 
+    def test_stock_race_condition_raises_on_zero_stock(self, db):
+        """Ordering more than available stock must raise ValueError (race guard)."""
+        pid = self._add_product(db, "RaceItem", stock=0)
+        items = [{"product_id": pid, "product_name": "RaceItem",
+                  "quantity": 1, "unit_price": 5.00, "subtotal": 5.00}]
+        with pytest.raises(ValueError, match="Insufficient stock"):
+            db.orders.create(1, "admin", 5.00, "Cash", items)
+        # Stock must remain 0 (transaction rolled back)
+        assert db.products.get_by_id(pid)["stock"] == 0
+
+    def test_stock_race_condition_exact_stock_succeeds(self, db):
+        """Ordering exactly the available stock should succeed."""
+        pid = self._add_product(db, "ExactItem", stock=3)
+        items = [{"product_id": pid, "product_name": "ExactItem",
+                  "quantity": 3, "unit_price": 5.00, "subtotal": 15.00}]
+        db.orders.create(1, "admin", 15.00, "Cash", items)
+        assert db.products.get_by_id(pid)["stock"] == 0
+
 
 # ---------------------------------------------------------------------------
 # DiscountRepository

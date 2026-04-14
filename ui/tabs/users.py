@@ -49,6 +49,8 @@ class UsersTab(BaseTab):
             )
 
     def _add(self) -> None:
+        if not self._assert_session_active():
+            return
         dlg = UserDialog(self.root)
         if dlg.result:
             r = dlg.result
@@ -63,6 +65,8 @@ class UsersTab(BaseTab):
                 messagebox.showerror("Error", str(exc), parent=self.root)
 
     def _edit(self) -> None:
+        if not self._assert_session_active():
+            return
         sel = self._tree.selection()
         if not sel:
             messagebox.showinfo("Select User", "Select a user to edit.", parent=self.root)
@@ -88,6 +92,8 @@ class UsersTab(BaseTab):
                 messagebox.showerror("Error", str(exc), parent=self.root)
 
     def _delete(self) -> None:
+        if not self._assert_session_active():
+            return
         sel = self._tree.selection()
         if not sel:
             messagebox.showinfo("Select User", "Select a user to delete.", parent=self.root)

@@ -180,6 +180,30 @@ class TestProductService:
         search_results = product_svc.search("")
         assert len(search_results) == len(all_products)
 
+    def test_add_product_invalidates_cache(self, db, product_svc):
+        """add_product() must invalidate the cache so get_all_products() reflects the new item."""
+        result_before = product_svc.get_all_products()
+        product_svc.add_product("NewItem", "Other", 1.5, 5)
+        result_after = product_svc.get_all_products()
+        assert result_before is not result_after
+        assert any(p["name"] == "NewItem" for p in result_after)
+
+    def test_update_product_invalidates_cache(self, db, product_svc):
+        """update_product() must invalidate the cache."""
+        product_svc.add_product("UpdItem", "Food", 2.0, 10)
+        pid = next(p["id"] for p in product_svc.get_all_products() if p["name"] == "UpdItem")
+        product_svc.update_product(pid, "UpdItemNew", "Food", 3.0, 20)
+        result_after = product_svc.get_all_products()
+        assert any(p["name"] == "UpdItemNew" for p in result_after)
+
+    def test_delete_product_invalidates_cache(self, db, product_svc):
+        """delete_product() must invalidate the cache."""
+        product_svc.add_product("DelItem", "Other", 1.0, 1)
+        pid = next(p["id"] for p in product_svc.get_all_products() if p["name"] == "DelItem")
+        product_svc.delete_product(pid)
+        result_after = product_svc.get_all_products()
+        assert not any(p["name"] == "DelItem" for p in result_after)
+
 
 # ---------------------------------------------------------------------------
 # ReportService
