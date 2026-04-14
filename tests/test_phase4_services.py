@@ -25,9 +25,12 @@ class TestBackupService:
 
     @pytest.fixture()
     def tmp(self, tmp_path):
-        """Return a temp dir with a minimal 'database' file."""
+        """Return a temp dir with a real (minimal) SQLite database file."""
+        import sqlite3
+
         db = tmp_path / "test.db"
-        db.write_bytes(b"SQLite format 3\x00" + b"\x00" * 48)
+        conn = sqlite3.connect(str(db))
+        conn.close()
         backups_dir = tmp_path / "backups"
         backups_dir.mkdir()
         return tmp_path, db, backups_dir

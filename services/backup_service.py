@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import os
 import shutil
+import sqlite3
+import tempfile
 import threading
 import zipfile
 from typing import Optional
@@ -49,6 +51,10 @@ class BackupService:
     def create_zip_backup(self) -> str:
         """Create a timestamped ZIP archive of the database in *backups/*.
 
+        Uses the SQLite online-backup API to produce a consistent snapshot
+        of the database even while it is open for writes, then compresses the
+        snapshot into a ``.zip`` archive.
+
         Returns the path to the newly created ``.zip`` file.
 
         Raises:
@@ -60,8 +66,27 @@ class BackupService:
         ensure_dirs()
         stamp = time_stamp()
         zip_path = os.path.join(BACKUPS_DIR, f"rezafood_backup_{stamp}.zip")
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.write(self._db_name, os.path.basename(self._db_name))
+
+        # Use a temporary file so the ZIP never contains a partial snapshot.
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_f:
+            tmp_db = tmp_f.name
+        try:
+            # SQLite online-backup: safe even with concurrent writers.
+            src_conn = sqlite3.connect(self._db_name)
+            try:
+                dst_conn = sqlite3.connect(tmp_db)
+                try:
+                    src_conn.backup(dst_conn)
+                finally:
+                    dst_conn.close()
+            finally:
+                src_conn.close()
+
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.write(tmp_db, os.path.basename(self._db_name))
+        finally:
+            if os.path.exists(tmp_db):
+                os.unlink(tmp_db)
 
         self._last_backup_path = zip_path
         self._last_backup_time = now_str()

@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import time
 import tkinter as tk
 from tkinter import messagebox
-from typing import Callable, ClassVar, Dict
+from typing import Callable, ClassVar
 
 from config import (
     APP_NAME,
@@ -17,16 +16,18 @@ from config import (
 )
 from db import Database
 from logger import logger
-from utils import check_password
+from utils import RateLimiter, check_password
 
 
 class LoginWindow(tk.Toplevel):
     """Modal login dialog shown at application start."""
 
-    # Class-level stores for rate limiting — shared across instances so that
-    # re-showing the login dialog after logout preserves the counters.
-    _failed_attempts: ClassVar[Dict[str, int]] = {}
-    _lockout_until: ClassVar[Dict[str, float]] = {}
+    # Class-level limiter — shared across instances so that re-showing the
+    # login dialog after logout preserves the counters.
+    _rate_limiter: ClassVar[RateLimiter] = RateLimiter(
+        max_attempts=MAX_LOGIN_ATTEMPTS,
+        lockout_seconds=LOGIN_LOCKOUT_SECONDS,
+    )
 
     def __init__(
         self,
@@ -140,10 +141,8 @@ class LoginWindow(tk.Toplevel):
             return
 
         # --- Rate limiting ---
-        now = time.monotonic()
-        lockout_end = self._lockout_until.get(username, 0)
-        if now < lockout_end:
-            remaining = int(lockout_end - now)
+        if self._rate_limiter.is_locked(username):
+            remaining = int(self._rate_limiter.remaining_lockout(username))
             messagebox.showerror(
                 "Account Locked",
                 f"Too many failed attempts.\nTry again in {remaining} second(s).",
@@ -155,12 +154,9 @@ class LoginWindow(tk.Toplevel):
         # --- Credential check ---
         user_row = self.db.get_user_by_username(username)
         if not user_row or not check_password(password, user_row["password_hash"]):
-            attempts = self._failed_attempts.get(username, 0) + 1
-            self._failed_attempts[username] = attempts
+            attempts = self._rate_limiter.record_failure(username)
 
-            if attempts >= MAX_LOGIN_ATTEMPTS:
-                self._lockout_until[username] = now + LOGIN_LOCKOUT_SECONDS
-                self._failed_attempts[username] = 0
+            if self._rate_limiter.is_locked(username):
                 minutes = LOGIN_LOCKOUT_SECONDS // 60
                 messagebox.showerror(
                     "Account Locked",
@@ -189,8 +185,7 @@ class LoginWindow(tk.Toplevel):
             return
 
         # --- Success ---
-        self._failed_attempts.pop(username, None)
-        self._lockout_until.pop(username, None)
+        self._rate_limiter.reset(username)
         logger.info("User '%s' logged in successfully.", username)
 
         user = {
