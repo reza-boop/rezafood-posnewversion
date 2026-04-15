@@ -1,0 +1,65 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:          # Run manually from the Actions tab
+  push:
+    tags:
+      - 'v*'                  # Also run automatically on version tags
+
+permissions:
+  contents: write             # Needed to upload release assets
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bcrypt pyinstaller
+
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller rezafood.spec
+
+      - name: Verify EXE was created
+        run: |
+          dir dist\
+          if not exist "dist\RezaFood-POS.exe" (
+            echo "ERROR: EXE not found!"
+            exit 1
+          )
+        shell: cmd
+
+      - name: Upload EXE as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RezaFood-POS-Windows
+          path: dist/RezaFood-POS.exe
+          retention-days: 30
+
+      # Only upload to GitHub Release when triggered by a version tag
+      - name: Upload EXE to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/RezaFood-POS.exe
+          name: RezaFood POS ${{ github.ref_name }}
+          body: |
+            ## RezaFood POS ${{ github.ref_name }}
+
+            ### نصب و اجرا
+            1. فایل `RezaFood-POS.exe` را دانلود کنید
+            2. دوبار روی آن کلیک کنید — نیازی به نصب Python ندارد
+            3. پایگاه داده `rezafood.db` در کنار EXE ساخته می‌شود
+
+            **نیازمندی‌ها:** ویندوز ۱۰ یا بالاتر (64-bit)

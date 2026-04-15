@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bcrypt pytest pytest-cov
+          # tkinter is available as a system package on ubuntu-latest
+          sudo apt-get install -y python3-tk
+
+      - name: Run tests with coverage
+        run: |
+          python -m pytest --cov=. --cov-report=term-missing \
+            --cov-omit="tests/*,ui/*,app.py"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install linting tools
+        run: pip install ruff flake8
+      - name: Lint with ruff
+        run: |
+          ruff check . --exclude ui --exclude app.py
+      - name: Lint with flake8 (fallback / CI gate)
+        run: |
+          flake8 . --max-line-length=100 \
+            --exclude=.git,__pycache__,logs,backups,exports,receipts,ui,app.py \
+            --extend-ignore=E501
+            
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install mypy
+        run: pip install mypy bcrypt
+      - name: Type check
+        run: |
+          mypy config.py logger.py utils.py db.py receipts.py \
+               services/order_service.py \
+               services/product_service.py \
+               services/report_service.py \
+            --ignore-missing-imports

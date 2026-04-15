@@ -1,0 +1,21 @@
+# RezaFood POS v11.3 — Python dependencies
+#
+# tkinter is part of the Python standard library and does NOT need to be
+# listed here.  On some Linux distributions you may need to install it via
+# your package manager, e.g.:
+#   sudo apt install python3-tk          (Debian/Ubuntu)
+#   sudo dnf install python3-tkinter     (Fedora/RHEL)
+#
+# Windows: tkinter is bundled with the official Python installer.
+
+# Runtime
+# bcrypt is optional but recommended — if installed, passwords are hashed
+# with bcrypt instead of PBKDF2-HMAC-SHA256.
+bcrypt>=4.0.0
+
+# Development / testing
+pytest>=7.0
+pytest-cov>=4.0
+flake8>=6.0
+ruff>=0.4.0
+mypy>=1.8
