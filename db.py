@@ -121,6 +121,7 @@ class Database:
             name       TEXT    UNIQUE NOT NULL,
             category   TEXT    NOT NULL DEFAULT 'Other',
             price      REAL    NOT NULL DEFAULT 0,
+            vat_rate   REAL    NOT NULL DEFAULT 7,
             stock      INTEGER NOT NULL DEFAULT 0,
             created_at TEXT    NOT NULL,
             updated_at TEXT    NOT NULL
@@ -133,17 +134,19 @@ class Database:
             total           REAL    NOT NULL DEFAULT 0,
             discount_amount REAL    NOT NULL DEFAULT 0,
             payment_method  TEXT    NOT NULL,
+            order_type      TEXT    NOT NULL DEFAULT 'take_away',
             created_at      TEXT    NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS order_items (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            order_id     INTEGER NOT NULL REFERENCES orders(id),
-            product_id   INTEGER,
-            product_name TEXT    NOT NULL,
-            quantity     INTEGER NOT NULL,
-            unit_price   REAL    NOT NULL,
-            subtotal     REAL    NOT NULL
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id          INTEGER NOT NULL REFERENCES orders(id),
+            product_id        INTEGER,
+            product_name      TEXT    NOT NULL,
+            quantity          INTEGER NOT NULL,
+            unit_price        REAL    NOT NULL,
+            applied_vat_rate  REAL    NOT NULL DEFAULT 7,
+            subtotal          REAL    NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS discounts (
@@ -169,12 +172,40 @@ class Database:
 
     def _migrate_schema(self) -> None:
         """Apply incremental schema migrations for older databases."""
+        # 1. discount_amount in orders
         existing_orders_cols = {
             row[1] for row in self.conn.execute("PRAGMA table_info(orders)")
         }
         if "discount_amount" not in existing_orders_cols:
             self.conn.execute(
                 "ALTER TABLE orders ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0"
+            )
+            self.conn.commit()
+
+        # 2. vat_rate in products
+        existing_products_cols = {
+            row[1] for row in self.conn.execute("PRAGMA table_info(products)")
+        }
+        if "vat_rate" not in existing_products_cols:
+            self.conn.execute(
+                "ALTER TABLE products ADD COLUMN vat_rate REAL NOT NULL DEFAULT 7"
+            )
+            self.conn.commit()
+
+        # 3. order_type in orders
+        if "order_type" not in existing_orders_cols:
+            self.conn.execute(
+                "ALTER TABLE orders ADD COLUMN order_type TEXT NOT NULL DEFAULT 'take_away'"
+            )
+            self.conn.commit()
+
+        # 4. applied_vat_rate in order_items
+        existing_items_cols = {
+            row[1] for row in self.conn.execute("PRAGMA table_info(order_items)")
+        }
+        if "applied_vat_rate" not in existing_items_cols:
+            self.conn.execute(
+                "ALTER TABLE order_items ADD COLUMN applied_vat_rate REAL NOT NULL DEFAULT 7"
             )
             self.conn.commit()
 
@@ -228,9 +259,9 @@ class Database:
         return self.products.get_by_id(product_id)
 
     def add_product(
-        self, name: str, category: str, price: float, stock: int
+        self, name: str, category: str, price: float, stock: int, vat_rate: float = 7.0
     ) -> None:
-        self.products.add(name, category, price, stock)
+        self.products.add(name, category, price, stock, vat_rate)
 
     def update_product(
         self,
@@ -239,8 +270,9 @@ class Database:
         category: str,
         price: float,
         stock: int,
+        vat_rate: float = 7.0,
     ) -> None:
-        self.products.update(product_id, name, category, price, stock)
+        self.products.update(product_id, name, category, price, stock, vat_rate)
 
     def delete_product(self, product_id: int) -> None:
         self.products.delete(product_id)
@@ -257,9 +289,10 @@ class Database:
         payment_method: str,
         items: List[Dict[str, Any]],
         discount_amount: float = 0.0,
+        order_type: str = 'take_away',
     ) -> int:
         return self.orders.create(
-            cashier_id, cashier_name, total, payment_method, items, discount_amount
+            cashier_id, cashier_name, total, payment_method, items, discount_amount, order_type
         )
 
     def get_all_orders(self) -> List[sqlite3.Row]:

@@ -20,6 +20,7 @@ class OrderRepository(BaseRepository):
         payment_method: str,
         items: List[Dict[str, Any]],
         discount_amount: float = 0.0,
+        order_type: str = 'take_away',
     ) -> int:
         """Persist a new order with its items and decrement stock atomically.
 
@@ -32,22 +33,25 @@ class OrderRepository(BaseRepository):
         with self.conn:
             cur = self.conn.execute(
                 "INSERT INTO orders"
-                " (cashier_id, cashier_name, total, discount_amount, payment_method, created_at)"
-                " VALUES (?,?,?,?,?,?)",
-                (cashier_id, cashier_name, total, discount_amount, payment_method, ts),
+                " (cashier_id, cashier_name, total, discount_amount, payment_method, order_type, created_at)"
+                " VALUES (?,?,?,?,?,?,?)",
+                (cashier_id, cashier_name, total, discount_amount, payment_method, order_type, ts),
             )
             order_id = cur.lastrowid
             for item in items:
+                # We store the applied VAT rate for each item for audit purposes (GoBD compliance)
+                vat_rate = item.get("applied_vat_rate", 7.0)
                 self.conn.execute(
                     "INSERT INTO order_items"
-                    " (order_id, product_id, product_name, quantity, unit_price, subtotal)"
-                    " VALUES (?,?,?,?,?,?)",
+                    " (order_id, product_id, product_name, quantity, unit_price, applied_vat_rate, subtotal)"
+                    " VALUES (?,?,?,?,?,?,?)",
                     (
                         order_id,
                         item["product_id"],
                         item["product_name"],
                         item["quantity"],
                         item["unit_price"],
+                        vat_rate,
                         item["subtotal"],
                     ),
                 )

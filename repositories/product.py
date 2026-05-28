@@ -23,14 +23,14 @@ class ProductRepository(BaseRepository):
             "SELECT * FROM products WHERE id=?", (product_id,)
         ).fetchone()
 
-    def add(self, name: str, category: str, price: float, stock: int) -> None:
+    def add(self, name: str, category: str, price: float, stock: int, vat_rate: float = 7.0) -> None:
         ts = now_str()
         try:
             self.conn.execute(
                 "INSERT INTO products"
-                " (name, category, price, stock, created_at, updated_at)"
-                " VALUES (?,?,?,?,?,?)",
-                (name, category, price, stock, ts, ts),
+                " (name, category, price, vat_rate, stock, created_at, updated_at)"
+                " VALUES (?,?,?,?,?,?,?)",
+                (name, category, price, vat_rate, stock, ts, ts),
             )
             self.conn.commit()
         except sqlite3.IntegrityError as exc:
@@ -43,13 +43,14 @@ class ProductRepository(BaseRepository):
         category: str,
         price: float,
         stock: int,
+        vat_rate: float = 7.0,
     ) -> None:
         ts = now_str()
         self.conn.execute(
             "UPDATE products"
-            " SET name=?, category=?, price=?, stock=?, updated_at=?"
+            " SET name=?, category=?, price=?, vat_rate=?, stock=?, updated_at=?"
             " WHERE id=?",
-            (name, category, price, stock, ts, product_id),
+            (name, category, price, vat_rate, stock, ts, product_id),
         )
         self.conn.commit()
 
