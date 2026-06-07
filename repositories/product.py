@@ -6,7 +6,7 @@ import sqlite3
 from typing import List, Optional
 
 from utils import now_str
-from db import DuplicateError
+from db import DuplicateError, ValidationError
 from repositories.base import BaseRepository
 
 
@@ -55,6 +55,17 @@ class ProductRepository(BaseRepository):
         self.conn.commit()
 
     def delete(self, product_id: int) -> None:
+        row = self.conn.execute(
+            "SELECT COUNT(*) AS cnt FROM order_items WHERE product_id=?",
+            (product_id,),
+        ).fetchone()
+        if row and row["cnt"] > 0:
+            cnt = row["cnt"]
+            noun = "order item" if cnt == 1 else "order items"
+            raise ValidationError(
+                f"Cannot delete product: it is referenced by {cnt} {noun}. "
+                "Delete would corrupt order history."
+            )
         self.conn.execute("DELETE FROM products WHERE id=?", (product_id,))
         self.conn.commit()
 

@@ -30,8 +30,18 @@ class TestSchema:
                 "SELECT name FROM sqlite_master WHERE type='table'"
             )
         }
-        for t in ("users", "products", "orders", "order_items", "discounts", "audit_logs"):
+        for t in ("users", "products", "orders", "order_items", "discounts",
+                  "audit_logs", "schema_migrations"):
             assert t in tables
+
+    def test_schema_migrations_populated(self, db):
+        """All known migrations should be recorded after init."""
+        from db import _SCHEMA_MIGRATIONS
+        applied = {
+            r[0] for r in db.conn.execute("SELECT name FROM schema_migrations")
+        }
+        for name, _ in _SCHEMA_MIGRATIONS:
+            assert name in applied, f"Migration '{name}' not recorded"
 
 
 # ---------------------------------------------------------------------------

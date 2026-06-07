@@ -52,6 +52,7 @@ FONT = {
 # Domain constants
 # ---------------------------------------------------------------------------
 PAYMENT_METHODS = ["Cash", "Card", "QR/E-Wallet"]
+ORDER_TYPES = ["Take Away", "Dine In", "Delivery"]
 ROLES = ["admin", "cashier"]
 CATEGORIES = ["Food", "Beverage", "Snack", "Dessert", "Other"]
 LOW_STOCK_THRESHOLD = 5

@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import messagebox, simpledialog
 from typing import TYPE_CHECKING, Any, Dict, List
 
-from config import FONT, PAYMENT_METHODS, THEME
+from config import FONT, ORDER_TYPES, PAYMENT_METHODS, THEME
 from receipts import ReceiptBuilder
 from ui.tabs import BaseTab
 from ui.widgets import btn, section_label, styled_tree
@@ -224,6 +224,24 @@ class PosTab(BaseTab):
             bg=THEME["entry_bg"], fg=THEME["entry_fg"], font=FONT["default"],
         )
         pay_menu.pack(side="right")
+
+        # Order type
+        order_type_frame = tk.Frame(right, bg=THEME["surface"])
+        order_type_frame.pack(fill="x", padx=8, pady=2)
+        tk.Label(
+            order_type_frame, text="Order type:", font=FONT["bold"],
+            bg=THEME["surface"], fg=THEME["fg"],
+        ).pack(side="left")
+        self._order_type_var = tk.StringVar(value=ORDER_TYPES[0])
+        order_type_menu = tk.OptionMenu(order_type_frame, self._order_type_var, *ORDER_TYPES)
+        order_type_menu.configure(
+            font=FONT["default"], bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+            relief="flat", highlightthickness=0,
+        )
+        order_type_menu["menu"].configure(
+            bg=THEME["entry_bg"], fg=THEME["entry_fg"], font=FONT["default"],
+        )
+        order_type_menu.pack(side="right")
 
         # Cash paid
         cash_frame = tk.Frame(right, bg=THEME["surface"])
@@ -592,6 +610,7 @@ class PosTab(BaseTab):
             payment_method=payment,
             items=self._cart,
             discount_amount=discount_amount,
+            order_type=self._order_type_var.get(),
         )
 
         builder = ReceiptBuilder(

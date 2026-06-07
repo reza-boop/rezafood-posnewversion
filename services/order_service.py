@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 
-from config import PAYMENT_METHODS
+from config import ORDER_TYPES, PAYMENT_METHODS
 from db import Database
 
 
@@ -87,6 +87,7 @@ class OrderService:
         payment_method: str,
         items: List[Dict[str, Any]],
         discount_amount: float = 0.0,
+        order_type: str = "Take Away",
     ) -> int:
         """Validate business rules and persist the order.
 
@@ -102,6 +103,12 @@ class OrderService:
                 f"Must be one of: {', '.join(PAYMENT_METHODS)}."
             )
 
+        if order_type not in ORDER_TYPES:
+            raise ValueError(
+                f"Invalid order type '{order_type}'. "
+                f"Must be one of: {', '.join(ORDER_TYPES)}."
+            )
+
         self._validate_items(items)
         self._validate_stock(items)
 
@@ -115,4 +122,5 @@ class OrderService:
             payment_method,
             items,
             discount_amount,
+            order_type,
         )

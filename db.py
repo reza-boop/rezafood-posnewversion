@@ -15,6 +15,38 @@ from utils import check_password, hash_password, now_str
 
 
 # ---------------------------------------------------------------------------
+# Schema migration registry
+# ---------------------------------------------------------------------------
+
+# Each entry is (name, sql).  Migrations are applied in order; once applied
+# they are recorded in the *schema_migrations* table so they are never run
+# twice.  To add a new migration, append an entry here — no other code
+# changes are needed.
+_SCHEMA_MIGRATIONS = [
+    (
+        "001_add_discount_amount_to_orders",
+        "ALTER TABLE orders ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0",
+    ),
+    (
+        "002_add_vat_rate_to_products",
+        "ALTER TABLE products ADD COLUMN vat_rate REAL NOT NULL DEFAULT 7",
+    ),
+    (
+        "003_add_order_type_to_orders",
+        "ALTER TABLE orders ADD COLUMN order_type TEXT NOT NULL DEFAULT 'Take Away'",
+    ),
+    (
+        "004_add_applied_vat_rate_to_order_items",
+        "ALTER TABLE order_items ADD COLUMN applied_vat_rate REAL NOT NULL DEFAULT 7",
+    ),
+    (
+        "005_add_must_change_password_to_users",
+        "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0",
+    ),
+]
+
+
+# ---------------------------------------------------------------------------
 # Custom exceptions
 # ---------------------------------------------------------------------------
 
@@ -172,56 +204,46 @@ class Database:
         self.conn.commit()
 
     def _migrate_schema(self) -> None:
-        """Apply incremental schema migrations for older databases."""
-        # 1. discount_amount in orders
-        existing_orders_cols = {
-            row[1] for row in self.conn.execute("PRAGMA table_info(orders)")
+        """Apply any pending schema migrations in registration order.
+
+        Migrations are tracked in the *schema_migrations* table so each one
+        runs at most once, regardless of how many times the application
+        starts.  Adding a new migration requires only appending an entry to
+        :data:`_SCHEMA_MIGRATIONS` — no further code changes are needed.
+        """
+        self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                name       TEXT PRIMARY KEY,
+                applied_at TEXT NOT NULL
+            )
+            """
+        )
+        self.conn.commit()
+
+        applied = {
+            row[0]
+            for row in self.conn.execute("SELECT name FROM schema_migrations")
         }
-        if "discount_amount" not in existing_orders_cols:
+
+        for name, sql in _SCHEMA_MIGRATIONS:
+            if name in applied:
+                continue
+            try:
+                self.conn.execute(sql)
+            except sqlite3.OperationalError:
+                # Column already exists (fresh DB built by init_schema); mark
+                # the migration as applied without re-running the DDL.
+                pass
             self.conn.execute(
-                "ALTER TABLE orders ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0"
+                "INSERT OR IGNORE INTO schema_migrations (name, applied_at) VALUES (?,?)",
+                (name, now_str()),
             )
             self.conn.commit()
 
-        # 2. vat_rate in products
-        existing_products_cols = {
-            row[1] for row in self.conn.execute("PRAGMA table_info(products)")
-        }
-        if "vat_rate" not in existing_products_cols:
-            self.conn.execute(
-                "ALTER TABLE products ADD COLUMN vat_rate REAL NOT NULL DEFAULT 7"
-            )
-            self.conn.commit()
-
-        # 3. order_type in orders
-        if "order_type" not in existing_orders_cols:
-            self.conn.execute(
-                "ALTER TABLE orders ADD COLUMN order_type TEXT NOT NULL DEFAULT 'take_away'"
-            )
-            self.conn.commit()
-
-        # 4. applied_vat_rate in order_items
-        existing_items_cols = {
-            row[1] for row in self.conn.execute("PRAGMA table_info(order_items)")
-        }
-        if "applied_vat_rate" not in existing_items_cols:
-            self.conn.execute(
-                "ALTER TABLE order_items ADD COLUMN applied_vat_rate REAL NOT NULL DEFAULT 7"
-            )
-            self.conn.commit()
-
-        # 5. must_change_password in users
-        existing_users_cols = {
-            row[1] for row in self.conn.execute("PRAGMA table_info(users)")
-        }
-        if "must_change_password" not in existing_users_cols:
-            self.conn.execute(
-                "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0"
-            )
-            self.conn.commit()
-
-        # Ensure legacy databases also enforce password rotation for unchanged
-        # seeded admin credentials.
+        # Enforce password rotation for any admin account still using the
+        # default password (covers legacy databases that pre-date the
+        # must_change_password column).
         admin = self.conn.execute(
             "SELECT id, password_hash FROM users WHERE username=?",
             (DEFAULT_ADMIN_USERNAME,),

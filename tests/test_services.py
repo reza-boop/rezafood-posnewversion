@@ -117,6 +117,32 @@ class TestOrderService:
             oid = order_svc.place_order(1, "admin", method, items)
             assert oid >= 1
 
+    def test_place_order_with_order_type(self, db, order_svc):
+        from config import ORDER_TYPES
+        pid = self._add_product(db, stock=100)
+        for otype in ORDER_TYPES:
+            items = [{"product_id": pid, "product_name": "Widget",
+                      "quantity": 1, "unit_price": 10.0, "subtotal": 10.0}]
+            oid = order_svc.place_order(1, "admin", "Cash", items, order_type=otype)
+            order = db.get_order_by_id(oid)
+            assert order["order_type"] == otype
+
+    def test_place_order_invalid_order_type_raises(self, db, order_svc):
+        pid = self._add_product(db)
+        items = [{"product_id": pid, "product_name": "Widget",
+                  "quantity": 1, "unit_price": 10.0, "subtotal": 10.0}]
+        with pytest.raises(ValueError, match="order type"):
+            order_svc.place_order(1, "admin", "Cash", items, order_type="InvalidType")
+
+    def test_place_order_default_order_type(self, db, order_svc):
+        """Default order_type should be 'Take Away'."""
+        pid = self._add_product(db)
+        items = [{"product_id": pid, "product_name": "Widget",
+                  "quantity": 1, "unit_price": 10.0, "subtotal": 10.0}]
+        oid = order_svc.place_order(1, "admin", "Cash", items)
+        order = db.get_order_by_id(oid)
+        assert order["order_type"] == "Take Away"
+
 
 # ---------------------------------------------------------------------------
 # ProductService
