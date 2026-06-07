@@ -127,7 +127,7 @@ python app.py
 You can also run a mobile-friendly web version and open it from Android:
 
 ```bash
-python web_app.py
+REZAFOOD_WEB_SECRET="change-this-secret" REZAFOOD_WEB_HOST="0.0.0.0" python web_app.py
 ```
 
 Then open this address in your phone browser (same Wi-Fi network):

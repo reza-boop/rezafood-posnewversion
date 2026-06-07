@@ -14,6 +14,7 @@
     input, select, button { padding: 8px; border: none; border-radius: 6px; }
     input, select { background: #45475a; color: #fff; }
     button { background: #89b4fa; color: #1e1e2e; font-weight: bold; }
+    .qty-input { width: 72px; }
     .flash { background: #a6e3a1; color: #1e1e2e; padding: 8px; border-radius: 8px; }
   </style>
 </head>
@@ -46,7 +47,7 @@
               </td>
               <td>{{ '%.2f'|format(p.price) }}</td>
               <td>{{ p.stock }}</td>
-              <td><input name="quantity" type="number" min="0" value="0" style="width:72px"></td>
+              <td><input class="qty-input" name="quantity" type="number" min="0" value="0"></td>
             </tr>
             {% endfor %}
           </tbody>

@@ -3,23 +3,32 @@
 from __future__ import annotations
 
 import os
+import secrets
 from typing import Any, Dict, List
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
 from config import ORDER_TYPES, PAYMENT_METHODS
 from db import Database
+from logger import logger
 from services.order_service import OrderService
 from services.product_service import ProductService
 from utils import check_password, ensure_dirs
 
 app = Flask(__name__)
-app.secret_key = os.getenv("REZAFOOD_WEB_SECRET", "rezafood-dev-secret")
+secret_key = os.getenv("REZAFOOD_WEB_SECRET")
+if not secret_key:
+    secret_key = secrets.token_hex(32)
+    logger.warning(
+        "REZAFOOD_WEB_SECRET is not set; using an ephemeral secret key."
+    )
+app.secret_key = secret_key
 
 ensure_dirs()
 db = Database()
 order_service = OrderService(db)
 product_service = ProductService(db)
+RECENT_ORDERS_LIMIT = 10
 
 
 def _current_user() -> Dict[str, Any] | None:
@@ -69,7 +78,7 @@ def dashboard() -> str:
         return redirect(url_for("login_page"))
 
     products = product_service.get_all_products()
-    orders = db.get_all_orders()[:10]
+    orders = db.get_all_orders()[:RECENT_ORDERS_LIMIT]
     return render_template(
         "dashboard.html",
         user=user,
@@ -148,4 +157,8 @@ def health() -> Dict[str, str]:
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=False)
+    app.run(
+        host=os.getenv("REZAFOOD_WEB_HOST", "127.0.0.1"),
+        port=int(os.getenv("REZAFOOD_WEB_PORT", "8000")),
+        debug=False,
+    )
