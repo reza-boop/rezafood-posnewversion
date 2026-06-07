@@ -263,10 +263,11 @@ class PosApp:
 
     def _check_session(self) -> None:
         if self._session.is_expired():
+            elapsed_minutes = self._session.idle_seconds() / 60
             logger.info(
-                "Session timeout for user '%s' after %d min idle.",
+                "Session timeout for user '%s' after %.1f min idle.",
                 self.user["username"],
-                SESSION_TIMEOUT_MINUTES,
+                elapsed_minutes,
             )
             self.db.add_audit_log(
                 self.user["id"], self.user["username"], "session_timeout", ""

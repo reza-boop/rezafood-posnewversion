@@ -21,6 +21,7 @@ class TestSchema:
         row = db.get_user_by_username("admin")
         assert row is not None
         assert row["role"] == "admin"
+        assert row["must_change_password"] == 1
 
     def test_tables_exist(self, db):
         tables = {
@@ -57,6 +58,7 @@ class TestUsers:
         updated = db.get_user_by_username("charlie2")
         assert updated is not None
         assert updated["role"] == "admin"
+        assert updated["must_change_password"] == 0
 
     def test_delete_user(self, db):
         db.add_user("dave", "pw123456", "cashier")

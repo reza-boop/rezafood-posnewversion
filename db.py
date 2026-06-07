@@ -10,8 +10,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Any, Dict, List, Optional
 
-from config import DB_NAME
-from utils import hash_password, now_str
+from config import DB_NAME, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME
+from utils import check_password, hash_password, now_str
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +112,7 @@ class Database:
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             username     TEXT    UNIQUE NOT NULL,
             password_hash TEXT   NOT NULL,
+            must_change_password INTEGER NOT NULL DEFAULT 0,
             role         TEXT    NOT NULL DEFAULT 'cashier',
             created_at   TEXT    NOT NULL
         );
@@ -209,17 +210,47 @@ class Database:
             )
             self.conn.commit()
 
+        # 5. must_change_password in users
+        existing_users_cols = {
+            row[1] for row in self.conn.execute("PRAGMA table_info(users)")
+        }
+        if "must_change_password" not in existing_users_cols:
+            self.conn.execute(
+                "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0"
+            )
+            self.conn.commit()
+
+        # Ensure legacy databases also enforce password rotation for unchanged
+        # seeded admin credentials.
+        admin = self.conn.execute(
+            "SELECT id, password_hash FROM users WHERE username=?",
+            (DEFAULT_ADMIN_USERNAME,),
+        ).fetchone()
+        if admin and check_password(DEFAULT_ADMIN_PASSWORD, admin["password_hash"]):
+            self.conn.execute(
+                "UPDATE users SET must_change_password=1 WHERE id=?",
+                (admin["id"],),
+            )
+            self.conn.commit()
+
     def seed_default_admin(self) -> None:
         """Insert the default admin account if it does not exist."""
         row = self.conn.execute(
-            "SELECT id FROM users WHERE username='admin'"
+            "SELECT id FROM users WHERE username=?",
+            (DEFAULT_ADMIN_USERNAME,),
         ).fetchone()
         if not row:
             ts = now_str()
             self.conn.execute(
-                "INSERT INTO users (username, password_hash, role, created_at)"
-                " VALUES (?,?,?,?)",
-                ("admin", hash_password("admin123"), "admin", ts),
+                "INSERT INTO users (username, password_hash, must_change_password, role, created_at)"
+                " VALUES (?,?,?,?,?)",
+                (
+                    DEFAULT_ADMIN_USERNAME,
+                    hash_password(DEFAULT_ADMIN_PASSWORD),
+                    1,
+                    "admin",
+                    ts,
+                ),
             )
             self.conn.commit()
 

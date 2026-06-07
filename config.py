@@ -64,6 +64,8 @@ SESSION_TIMEOUT_MINUTES = 15   # auto-logout after this many minutes idle
 MAX_LOGIN_ATTEMPTS = 5         # failed logins before lockout
 LOGIN_LOCKOUT_SECONDS = 300    # lockout duration in seconds (5 min)
 MIN_PASSWORD_LENGTH = 6        # minimum password length enforced on new accounts
+DEFAULT_ADMIN_USERNAME = "admin"
+DEFAULT_ADMIN_PASSWORD = "admin123"
 
 # ---------------------------------------------------------------------------
 # Logging

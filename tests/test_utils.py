@@ -199,3 +199,13 @@ class TestSession:
     def test_not_expired_when_not_logged_in(self):
         s = Session(timeout_minutes=0)
         assert not s.is_expired()
+
+    def test_idle_seconds_zero_when_logged_out(self):
+        s = Session()
+        assert s.idle_seconds() == 0.0
+
+    def test_idle_seconds_positive_when_logged_in(self):
+        s = Session()
+        s.login(1, "alice", "admin")
+        time.sleep(0.01)
+        assert s.idle_seconds() > 0

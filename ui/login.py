@@ -9,6 +9,7 @@ from typing import Callable, ClassVar
 from config import (
     APP_NAME,
     APP_VERSION,
+    DEFAULT_ADMIN_PASSWORD,
     FONT,
     LOGIN_LOCKOUT_SECONDS,
     MAX_LOGIN_ATTEMPTS,
@@ -203,10 +204,7 @@ class LoginWindow(tk.Toplevel):
         self.on_success(user)
 
     def _must_change_default_admin_password(self, user_row) -> bool:
-        return (
-            user_row["username"] == "admin"
-            and check_password("admin123", user_row["password_hash"])
-        )
+        return bool(user_row["must_change_password"])
 
     def _force_change_default_admin_password(self, user_row) -> bool:
         messagebox.showwarning(
@@ -237,7 +235,7 @@ class LoginWindow(tk.Toplevel):
                 )
                 continue
 
-            if new_password == "admin123":
+            if new_password == DEFAULT_ADMIN_PASSWORD:
                 messagebox.showwarning(
                     "Invalid Password",
                     "New password cannot be the default password.",
