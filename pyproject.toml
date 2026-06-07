@@ -10,6 +10,7 @@ requires-python = ">=3.9"
 license = { text = "MIT" }
 dependencies = [
     "bcrypt>=4.0.0",
+    "Flask>=3.0.0",
 ]
 
 [project.optional-dependencies]

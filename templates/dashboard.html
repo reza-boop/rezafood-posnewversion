@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RezaFood Web POS</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; background: #1e1e2e; color: #cdd6f4; }
+    .top { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #313244; }
+    .container { padding: 12px; display: grid; gap: 12px; }
+    .card { background: #313244; border-radius: 10px; padding: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { padding: 6px; border-bottom: 1px solid #45475a; font-size: 14px; }
+    input, select, button { padding: 8px; border: none; border-radius: 6px; }
+    input, select { background: #45475a; color: #fff; }
+    button { background: #89b4fa; color: #1e1e2e; font-weight: bold; }
+    .flash { background: #a6e3a1; color: #1e1e2e; padding: 8px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>کاربر: {{ user.username }}</div>
+    <form method="post" action="/logout"><button type="submit">خروج</button></form>
+  </div>
+
+  <div class="container">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash">{{ messages[-1] }}</div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="card">
+      <h3>ثبت سفارش</h3>
+      <form method="post" action="/orders">
+        <table>
+          <thead>
+            <tr><th>محصول</th><th>قیمت</th><th>موجودی</th><th>تعداد</th></tr>
+          </thead>
+          <tbody>
+            {% for p in products %}
+            <tr>
+              <td>
+                {{ p.name }}
+                <input type="hidden" name="product_id" value="{{ p.id }}">
+              </td>
+              <td>{{ '%.2f'|format(p.price) }}</td>
+              <td>{{ p.stock }}</td>
+              <td><input name="quantity" type="number" min="0" value="0" style="width:72px"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+          <select name="payment_method">
+            {% for m in payment_methods %}
+              <option value="{{ m }}">{{ m }}</option>
+            {% endfor %}
+          </select>
+          <select name="order_type">
+            {% for t in order_types %}
+              <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit">ثبت سفارش</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>آخرین سفارش‌ها</h3>
+      <table>
+        <thead>
+          <tr><th>#</th><th>صندوقدار</th><th>روش پرداخت</th><th>مبلغ</th><th>زمان</th></tr>
+        </thead>
+        <tbody>
+          {% for o in orders %}
+          <tr>
+            <td>{{ o.id }}</td>
+            <td>{{ o.cashier_name }}</td>
+            <td>{{ o.payment_method }}</td>
+            <td>{{ '%.2f'|format(o.total) }}</td>
+            <td>{{ o.created_at }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

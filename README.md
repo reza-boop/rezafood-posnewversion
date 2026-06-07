@@ -119,3 +119,24 @@ Then run as usual:
 ```bash
 python app.py
 ```
+
+---
+
+## Web mode (Android-friendly)
+
+You can also run a mobile-friendly web version and open it from Android:
+
+```bash
+python web_app.py
+```
+
+Then open this address in your phone browser (same Wi-Fi network):
+
+```text
+http://<YOUR_COMPUTER_IP>:8000
+```
+
+Default login:
+
+- Username: `admin`
+- Password: `admin123`
