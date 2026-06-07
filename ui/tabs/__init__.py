@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import TYPE_CHECKING
-
-from config import SESSION_TIMEOUT_MINUTES
 
 if TYPE_CHECKING:
     from ui.main import PosApp
@@ -43,8 +40,7 @@ class BaseTab(tk.Frame):
         add/edit/delete).  If the session has expired the user sees a clear
         message and must log in again.
         """
-        elapsed_minutes = (time.monotonic() - self.app._last_activity) / 60
-        if elapsed_minutes >= SESSION_TIMEOUT_MINUTES:
+        if not self.app.is_session_active():
             messagebox.showerror(
                 "Session Expired",
                 "Your session has expired due to inactivity.\n"

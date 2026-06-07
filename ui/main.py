@@ -6,7 +6,6 @@ global keyboard shortcuts.  All tab-specific logic lives in ``ui/tabs/``.
 
 from __future__ import annotations
 
-import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Dict, Optional
@@ -34,6 +33,7 @@ from ui.tabs.pos import PosTab
 from ui.tabs.products import ProductsTab
 from ui.tabs.settings import SettingsTab
 from ui.tabs.users import UsersTab
+from utils import Session
 
 
 class PosApp:
@@ -46,6 +46,8 @@ class PosApp:
         self.db = db
         self.user = user
         self.is_admin = user["role"] == "admin"
+        self._session = Session(timeout_minutes=SESSION_TIMEOUT_MINUTES)
+        self._session.login(user["id"], user["username"], user["role"])
 
         # Services
         self.order_service = OrderService(db)
@@ -246,14 +248,13 @@ class PosApp:
     # ------------------------------------------------------------------
 
     def _setup_session_timeout(self) -> None:
-        self._last_activity = time.monotonic()
         self.root.bind_all("<KeyPress>", self._on_activity, add=True)
         self.root.bind_all("<ButtonPress>", self._on_activity, add=True)
         self._session_after_id: Optional[str] = None
         self._schedule_session_check()
 
     def _on_activity(self, _event=None) -> None:
-        self._last_activity = time.monotonic()
+        self._session.touch()
 
     def _schedule_session_check(self) -> None:
         self._session_after_id = self.root.after(
@@ -261,12 +262,11 @@ class PosApp:
         )
 
     def _check_session(self) -> None:
-        elapsed_minutes = (time.monotonic() - self._last_activity) / 60
-        if elapsed_minutes >= SESSION_TIMEOUT_MINUTES:
+        if self._session.is_expired():
             logger.info(
-                "Session timeout for user '%s' after %.1f min idle.",
+                "Session timeout for user '%s' after %d min idle.",
                 self.user["username"],
-                elapsed_minutes,
+                SESSION_TIMEOUT_MINUTES,
             )
             self.db.add_audit_log(
                 self.user["id"], self.user["username"], "session_timeout", ""
@@ -281,6 +281,9 @@ class PosApp:
             self.root.destroy()
             return
         self._schedule_session_check()
+
+    def is_session_active(self) -> bool:
+        return not self._session.is_expired()
 
     # ------------------------------------------------------------------
     # Sync change callback
@@ -314,6 +317,7 @@ class PosApp:
         if self._session_after_id:
             self.root.after_cancel(self._session_after_id)
             self._session_after_id = None
+        self._session.logout()
         self.backup_service.stop_auto_backup()
         self.sync_service.stop()
 
