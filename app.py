@@ -7,7 +7,18 @@ Run with:
 from __future__ import annotations
 
 import sys
-import tkinter as tk
+try:
+    import tkinter as tk
+except ModuleNotFoundError as exc:
+    if exc.name == "tkinter":
+        print(
+            "Tkinter is not installed in this Python environment.\n"
+            "Install it (for Debian/Ubuntu: sudo apt install python3-tk),\n"
+            "or run the web mode instead with: python web_app.py",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from exc
+    raise
 
 from config import APP_NAME
 from db import Database

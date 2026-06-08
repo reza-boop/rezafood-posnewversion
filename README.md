@@ -120,6 +120,9 @@ Then run as usual:
 python app.py
 ```
 
+If you see `ModuleNotFoundError: No module named 'tkinter'`, install tkinter
+for your distro first (for Debian/Ubuntu: `sudo apt install python3-tk`).
+
 ---
 
 ## Web mode (Android-friendly)
