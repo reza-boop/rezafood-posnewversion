@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import secrets
 import sys
@@ -189,8 +190,6 @@ def reports_page() -> str:
     if user["role"] != "admin":
         flash("دسترسی به گزارش‌ها فقط برای ادمین است.")
         return redirect(url_for("dashboard"))
-
-    import json
 
     daily = report_service.daily_revenue(days=30)
     by_payment = report_service.revenue_by_payment()
