@@ -24,7 +24,12 @@ def resolve_web_bind(
     host_override: str | None = None,
     port_override: int | None = None,
 ) -> tuple[str, int]:
-    host = (host_override or os.getenv(WEB_HOST_ENV, DEFAULT_WEB_HOST)).strip() or DEFAULT_WEB_HOST
+    raw_host = (
+        host_override
+        if host_override is not None
+        else os.getenv(WEB_HOST_ENV, DEFAULT_WEB_HOST)
+    )
+    host = raw_host.strip() or DEFAULT_WEB_HOST
 
     if port_override is None:
         port_raw = os.getenv(WEB_PORT_ENV, str(DEFAULT_WEB_PORT))
