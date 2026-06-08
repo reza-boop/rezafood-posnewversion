@@ -1,4 +1,4 @@
-# RezaFood POS v11.3
+# RezaFood POS v12.0
 
 A modular **Tkinter + SQLite** Point-of-Sale application for Windows (also
 runs on macOS and Linux with Python 3.9+).
