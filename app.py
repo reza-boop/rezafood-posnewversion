@@ -7,18 +7,24 @@ Run with:
 from __future__ import annotations
 
 import sys
-import tkinter as tk
 
-from config import APP_NAME
 from db import Database
 from logger import logger
-from ui.login import LoginWindow
-from ui.main import PosApp
+from runtime_bootstrap import TKINTER_MISSING_REASON, desktop_unavailable_message
 from utils import ensure_dirs
 
 
 def main() -> None:
     """Initialise directories, database, and the Tkinter event loop."""
+    try:
+        import tkinter as tk
+    except ModuleNotFoundError as exc:
+        print(desktop_unavailable_message(TKINTER_MISSING_REASON), file=sys.stderr)
+        raise SystemExit(1) from exc
+
+    from ui.login import LoginWindow
+    from ui.main import PosApp
+
     ensure_dirs()
     logger.info("RezaFood POS starting up.")
 

@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 from typing import Callable, ClassVar
 
 from config import (
     APP_NAME,
     APP_VERSION,
+    DEFAULT_ADMIN_PASSWORD,
     FONT,
     LOGIN_LOCKOUT_SECONDS,
     MAX_LOGIN_ATTEMPTS,
+    MIN_PASSWORD_LENGTH,
     THEME,
 )
 from db import Database
@@ -184,6 +186,11 @@ class LoginWindow(tk.Toplevel):
             self._password_entry.delete(0, "end")
             return
 
+        if self._must_change_default_admin_password(user_row):
+            if not self._force_change_default_admin_password(user_row):
+                self._password_entry.delete(0, "end")
+                return
+
         # --- Success ---
         self._rate_limiter.reset(username)
         logger.info("User '%s' logged in successfully.", username)
@@ -195,6 +202,83 @@ class LoginWindow(tk.Toplevel):
         }
         self.destroy()
         self.on_success(user)
+
+    def _must_change_default_admin_password(self, user_row) -> bool:
+        return bool(user_row["must_change_password"])
+
+    def _force_change_default_admin_password(self, user_row) -> bool:
+        messagebox.showwarning(
+            "Password Change Required",
+            "Default admin password detected.\nYou must set a new password to continue.",
+            parent=self,
+        )
+        while True:
+            new_password = simpledialog.askstring(
+                "New Password",
+                f"Enter a new admin password (min {MIN_PASSWORD_LENGTH} chars):",
+                show="*",
+                parent=self,
+            )
+            if new_password is None:
+                messagebox.showerror(
+                    "Password Required",
+                    "You must change the default admin password to log in.",
+                    parent=self,
+                )
+                return False
+
+            if len(new_password) < MIN_PASSWORD_LENGTH:
+                messagebox.showwarning(
+                    "Weak Password",
+                    f"Password must be at least {MIN_PASSWORD_LENGTH} characters.",
+                    parent=self,
+                )
+                continue
+
+            if new_password == DEFAULT_ADMIN_PASSWORD:
+                messagebox.showwarning(
+                    "Invalid Password",
+                    "New password cannot be the default password.",
+                    parent=self,
+                )
+                continue
+
+            confirm_password = simpledialog.askstring(
+                "Confirm Password",
+                "Re-enter the new password:",
+                show="*",
+                parent=self,
+            )
+            if confirm_password is None:
+                messagebox.showerror(
+                    "Password Required",
+                    "Password confirmation is required.",
+                    parent=self,
+                )
+                return False
+
+            if confirm_password != new_password:
+                messagebox.showwarning(
+                    "Mismatch",
+                    "Passwords do not match. Please try again.",
+                    parent=self,
+                )
+                continue
+
+            self.db.update_user(
+                user_row["id"],
+                user_row["username"],
+                new_password,
+                user_row["role"],
+            )
+            self.db.add_audit_log(
+                user_row["id"],
+                user_row["username"],
+                "force_password_change",
+                "default_admin_password_replaced",
+            )
+            logger.info("User '%s' replaced default admin password.", user_row["username"])
+            return True
 
     def _on_close(self) -> None:
         """Closing the login window exits the application."""

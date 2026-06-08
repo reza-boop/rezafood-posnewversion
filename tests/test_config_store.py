@@ -13,9 +13,11 @@ import config_store
 
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path, monkeypatch):
-    """Redirect the settings file into a temp directory for each test."""
+    """Redirect the settings file and key file into a temp directory for each test."""
     settings_file = str(tmp_path / "rezafood_settings.json")
+    key_file = str(tmp_path / "rezafood_settings.key")
     monkeypatch.setattr(config_store, "_SETTINGS_FILE", settings_file)
+    monkeypatch.setattr(config_store, "_KEY_FILE", key_file)
     yield settings_file
 
 
@@ -55,6 +57,39 @@ class TestConfigStore:
             f.write("not valid json {{")
         data = config_store.load()
         assert data == config_store._DEFAULTS
+
+    def test_tampered_settings_falls_back_to_defaults(self, _isolated_settings):
+        """Modifying the JSON payload without updating the MAC triggers a fallback."""
+        config_store.set("auto_backup_enabled", True)
+        # Read the signed file and corrupt the payload without touching the MAC
+        with open(_isolated_settings, encoding="utf-8") as f:
+            wrapper = json.load(f)
+        wrapper["settings"]["auto_backup_enabled"] = False
+        wrapper["settings"]["remote_backup_path"] = "/evil/path"
+        with open(_isolated_settings, "w", encoding="utf-8") as f:
+            json.dump(wrapper, f)
+        # Integrity check should fail → defaults returned
+        data = config_store.load()
+        assert data["auto_backup_enabled"] is False
+        assert data["remote_backup_path"] == ""
+
+    def test_tampered_mac_falls_back_to_defaults(self, _isolated_settings):
+        """A wrong MAC value should cause load() to return defaults."""
+        config_store.set("sync_enabled", True)
+        with open(_isolated_settings, encoding="utf-8") as f:
+            wrapper = json.load(f)
+        wrapper["_mac"] = "0" * 64  # obviously wrong MAC
+        with open(_isolated_settings, "w", encoding="utf-8") as f:
+            json.dump(wrapper, f)
+        data = config_store.load()
+        assert data["sync_enabled"] is False
+
+    def test_legacy_plain_format_still_loads(self, _isolated_settings):
+        """A plain JSON dict (pre-integrity upgrade) should load without error."""
+        with open(_isolated_settings, "w", encoding="utf-8") as f:
+            json.dump({"auto_backup_enabled": True}, f)
+        data = config_store.load()
+        assert data["auto_backup_enabled"] is True
 
     def test_set_is_thread_safe(self):
         """Concurrent set() calls must not lose each other's updates."""

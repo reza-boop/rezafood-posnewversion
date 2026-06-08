@@ -21,6 +21,7 @@ class TestSchema:
         row = db.get_user_by_username("admin")
         assert row is not None
         assert row["role"] == "admin"
+        assert row["must_change_password"] == 1
 
     def test_tables_exist(self, db):
         tables = {
@@ -29,8 +30,18 @@ class TestSchema:
                 "SELECT name FROM sqlite_master WHERE type='table'"
             )
         }
-        for t in ("users", "products", "orders", "order_items", "discounts", "audit_logs"):
+        for t in ("users", "products", "orders", "order_items", "discounts",
+                  "audit_logs", "schema_migrations"):
             assert t in tables
+
+    def test_schema_migrations_populated(self, db):
+        """All known migrations should be recorded after init."""
+        from db import _SCHEMA_MIGRATIONS
+        applied = {
+            r[0] for r in db.conn.execute("SELECT name FROM schema_migrations")
+        }
+        for name, _ in _SCHEMA_MIGRATIONS:
+            assert name in applied, f"Migration '{name}' not recorded"
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +68,7 @@ class TestUsers:
         updated = db.get_user_by_username("charlie2")
         assert updated is not None
         assert updated["role"] == "admin"
+        assert updated["must_change_password"] == 0
 
     def test_delete_user(self, db):
         db.add_user("dave", "pw123456", "cashier")
@@ -161,6 +173,25 @@ class TestOrders:
         order = db.get_order_by_id(oid)
         assert order["discount_amount"] == 0.50
         assert order["total"] == 4.50
+
+    def test_get_recent_orders_limits_results(self, db):
+        pid = self._add_product(db, "Recent", stock=20)
+        items = [
+            {
+                "product_id": pid,
+                "product_name": "Recent",
+                "quantity": 1,
+                "unit_price": 12.00,
+                "subtotal": 12.00,
+            }
+        ]
+        for _ in range(3):
+            db.create_order(self._cashier_id(db), "admin", 12.00, "Cash", items)
+
+        orders = db.get_recent_orders(2)
+
+        assert len(orders) == 2
+        assert orders[0]["id"] > orders[1]["id"]
 
 
 # ---------------------------------------------------------------------------

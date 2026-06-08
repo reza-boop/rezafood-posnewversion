@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>گزارش‌ها – RezaFood POS</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/web_shared.css') }}">
+  <style>
+    :root {
+      --bg: #0b1120;
+      --bg-2: #111827;
+      --panel: rgba(15, 23, 42, 0.82);
+      --panel-border: rgba(148, 163, 184, 0.25);
+      --muted: #94a3b8;
+      --radius: 14px;
+    }
+
+    .top { gap: 10px; }
+
+    .meta { display: flex; flex-direction: column; gap: 2px; }
+    .meta strong { font-size: 15px; }
+    .meta span { color: var(--muted); font-size: 12px; }
+
+    .container { width: min(1220px, 100%); }
+
+    .hero {
+      background: linear-gradient(130deg, #0f172a, #0f3a57);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      box-shadow: 0 16px 30px rgba(2, 6, 23, 0.42);
+      opacity: 0;
+      transform: translateY(10px);
+      animation: riseIn 0.55s var(--ease) forwards;
+    }
+
+    .hero h1 { margin: 0 0 6px; font-size: 20px; }
+    .hero p { margin: 0; color: #cbd5e1; font-size: 13px; }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(100px, 1fr));
+      gap: 8px;
+      min-width: 220px;
+    }
+
+    .legend .item {
+      background: #0f172a99;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 8px;
+      text-align: center;
+      font-size: 12px;
+      color: #bae6fd;
+    }
+
+    .grid2 {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+
+    h3 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      color: #bae6fd;
+    }
+
+    .chart-wrap {
+      position: relative;
+      min-height: 280px;
+      background: #0f172a80;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 8px;
+    }
+
+    @media (max-width: 700px) {
+      .chart-wrap { min-height: 240px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div class="meta">
+      <strong>گزارش‌های مدیریتی</strong>
+      <span>کاربر: {{ user.username }}</span>
+    </div>
+    <div class="actions">
+      <a href="/">🏠 داشبورد</a>
+      <form method="post" action="/logout"><button type="submit">خروج</button></form>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="hero">
+      <div>
+        <h1>نمای تحلیلی فروش</h1>
+        <p>این بخش اطلاعات کلیدی فروش را برای تصمیم‌گیری سریع‌تر نمایش می‌دهد.</p>
+      </div>
+      <div class="legend">
+        <div class="item">۳۰ روز اخیر</div>
+        <div class="item">تفکیک روش پرداخت</div>
+        <div class="item">تفکیک دسته‌بندی</div>
+        <div class="item">توزیع ساعتی</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📈 درآمد روزانه (۳۰ روز اخیر)</h3>
+      <div class="chart-wrap"><canvas id="chartDaily"></canvas></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>💳 درآمد بر اساس روش پرداخت</h3>
+        <div class="chart-wrap"><canvas id="chartPayment"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>🗂 فروش بر اساس دسته‌بندی</h3>
+        <div class="chart-wrap"><canvas id="chartCategory"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>👤 برترین صندوقداران</h3>
+        <div class="chart-wrap"><canvas id="chartCashiers"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>🕐 توزیع ساعتی سفارشات</h3>
+        <div class="chart-wrap"><canvas id="chartHourly"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📋 جدول درآمد روزانه</h3>
+      <table>
+        <thead><tr><th>تاریخ</th><th>تعداد سفارش</th><th>درآمد</th></tr></thead>
+        <tbody id="dailyTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const PALETTE = ['#38bdf8','#22d3ee','#f59e0b','#fb7185','#a78bfa','#34d399','#facc15','#60a5fa'];
+
+    const daily = {{ daily_json | safe }};
+    const byPayment = {{ by_payment_json | safe }};
+    const byCategory = {{ by_category_json | safe }};
+    const topCash = {{ top_cashiers_json | safe }};
+    const hourly = {{ hourly_json | safe }};
+
+    const axisCommon = {
+      x: { ticks: { color: '#cbd5e1' }, grid: { color: '#334155' } },
+      y: { ticks: { color: '#cbd5e1' }, grid: { color: '#334155' } }
+    };
+
+    new Chart(document.getElementById('chartDaily'), {
+      type: 'line',
+      data: {
+        labels: daily.map(r => r.day).reverse(),
+        datasets: [{
+          label: 'درآمد',
+          data: daily.map(r => r.revenue).reverse(),
+          borderColor: '#38bdf8',
+          backgroundColor: 'rgba(56,189,248,0.18)',
+          fill: true,
+          tension: 0.34,
+          pointRadius: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: axisCommon
+      }
+    });
+
+    new Chart(document.getElementById('chartPayment'), {
+      type: 'doughnut',
+      data: {
+        labels: byPayment.map(r => r.payment_method),
+        datasets: [{ data: byPayment.map(r => r.revenue), backgroundColor: PALETTE }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { color: '#cbd5e1', boxWidth: 14 } }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('chartCategory'), {
+      type: 'bar',
+      data: {
+        labels: byCategory.map(r => r.category || 'سایر'),
+        datasets: [{ label: 'درآمد', data: byCategory.map(r => r.revenue), backgroundColor: PALETTE }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: axisCommon
+      }
+    });
+
+    new Chart(document.getElementById('chartCashiers'), {
+      type: 'bar',
+      data: {
+        labels: topCash.map(r => r.cashier_name),
+        datasets: [{ label: 'درآمد', data: topCash.map(r => r.revenue), backgroundColor: '#22d3ee' }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: axisCommon
+      }
+    });
+
+    new Chart(document.getElementById('chartHourly'), {
+      type: 'bar',
+      data: {
+        labels: hourly.map(r => `${r.hour}:00`),
+        datasets: [{ label: 'سفارشات', data: hourly.map(r => r.orders), backgroundColor: '#f59e0b' }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: axisCommon
+      }
+    });
+
+    const tbody = document.getElementById('dailyTable');
+    daily.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.day}</td><td>${r.orders}</td><td>${Number(r.revenue).toFixed(2)}</td>`;
+      tbody.appendChild(tr);
+    });
+  </script>
+</body>
+</html>

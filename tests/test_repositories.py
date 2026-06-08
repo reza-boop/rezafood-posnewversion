@@ -109,6 +109,19 @@ class TestProductRepository:
         db.products.delete(pid)
         assert db.products.get_by_id(pid) is None
 
+    def test_delete_blocked_when_in_orders(self, db):
+        """Deleting a product that appears in order_items must raise ValidationError."""
+        from db import ValidationError
+        db.products.add("InOrder", "Food", 5.00, 10)
+        pid = next(p["id"] for p in db.products.get_all() if p["name"] == "InOrder")
+        db.orders.create(
+            1, "admin", 5.0, "Cash",
+            [{"product_id": pid, "product_name": "InOrder",
+              "quantity": 1, "unit_price": 5.0, "subtotal": 5.0}],
+        )
+        with pytest.raises(ValidationError):
+            db.products.delete(pid)
+
     def test_duplicate_raises(self, db):
         db.products.add("Pizza", "Food", 10.0, 5)
         with pytest.raises(DuplicateError):

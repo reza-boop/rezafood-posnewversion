@@ -1,7 +1,7 @@
-# RezaFood POS v11.3
+# RezaFood POS v12.0
 
 A modular **Tkinter + SQLite** Point-of-Sale application for Windows (also
-runs on macOS and Linux with Python 3.10+).
+runs on macOS and Linux with Python 3.9+).
 
 ---
 
@@ -63,11 +63,20 @@ Runtime directories (created automatically, excluded from git):
    pip install -r requirements.txt
    ```
 
+   Or, if you prefer package-managed project metadata:
+
+   ```powershell
+   pip install -e ".[dev]"
+   ```
+
 6. **Run the application**:
 
    ```powershell
-   python app.py
+   python launcher.py
    ```
+
+   This starts the desktop app when tkinter and a graphical session are
+   available, and otherwise falls back to web mode automatically.
 
 ---
 
@@ -117,5 +126,44 @@ sudo apt install python3-tk
 Then run as usual:
 
 ```bash
-python app.py
+python launcher.py
 ```
+
+If you see `ModuleNotFoundError: No module named 'tkinter'`, install tkinter
+for your distro first (for Debian/Ubuntu: `sudo apt install python3-tk`).
+
+---
+
+## Web mode (Android-friendly)
+
+You can also run a mobile-friendly web version and open it from Android:
+
+```bash
+REZAFOOD_WEB_SECRET="change-this-secret" python web_app.py --host 0.0.0.0 --port 8000
+```
+
+If you bind web mode to a non-local interface such as `0.0.0.0`, `REZAFOOD_WEB_SECRET`
+must be set. Local-only runs on `127.0.0.1` can still use an ephemeral secret for quick testing.
+
+Or force web mode through the smart launcher:
+
+```bash
+python launcher.py --web
+```
+
+Or force desktop mode explicitly:
+
+```bash
+python launcher.py --desktop
+```
+
+Then open this address in your phone browser (same Wi-Fi network):
+
+```text
+http://<YOUR_COMPUTER_IP>:8000
+```
+
+Default login:
+
+- Username: `admin`
+- Password: `admin123`

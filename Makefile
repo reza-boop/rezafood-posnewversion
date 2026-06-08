@@ -1,10 +1,16 @@
 # RezaFood POS — developer convenience targets
-.PHONY: run test lint backup clean
+.PHONY: run run-desktop run-web test lint backup clean
 
 PYTHON := python3
 
 run:
-	$(PYTHON) app.py
+	$(PYTHON) launcher.py
+
+run-desktop:
+	$(PYTHON) launcher.py --desktop
+
+run-web:
+	$(PYTHON) launcher.py --web
 
 test:
 	$(PYTHON) -m pytest

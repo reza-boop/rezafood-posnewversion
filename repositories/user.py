@@ -45,7 +45,7 @@ class UserRepository(BaseRepository):
         try:
             if password:
                 self.conn.execute(
-                    "UPDATE users SET username=?, password_hash=?, role=? WHERE id=?",
+                    "UPDATE users SET username=?, password_hash=?, must_change_password=0, role=? WHERE id=?",
                     (username, hash_password(password), role, user_id),
                 )
             else:

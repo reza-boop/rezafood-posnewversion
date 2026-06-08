@@ -324,6 +324,13 @@ class Session:
                 return False
             return (time.monotonic() - self._last_active) > self._timeout_seconds
 
+    def idle_seconds(self) -> float:
+        """Return current idle duration in seconds (0 when logged out)."""
+        with self._lock:
+            if self._user_id is None:
+                return 0.0
+            return time.monotonic() - self._last_active
+
     # ------------------------------------------------------------------
     # Properties (read-only)
     # ------------------------------------------------------------------

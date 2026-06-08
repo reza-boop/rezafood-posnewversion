@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RezaFood Web POS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/web_shared.css') }}">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-2: #111827;
+      --panel: rgba(15, 23, 42, 0.82);
+      --panel-border: rgba(148, 163, 184, 0.22);
+      --muted: #94a3b8;
+      --success: #22c55e;
+      --radius: 14px;
+    }
+
+    .top strong { font-size: 15px; }
+    .top .muted { color: var(--muted); font-size: 12px; display: block; margin-top: 2px; }
+
+    .summary {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    }
+
+    .chip {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      padding: 12px;
+      box-shadow: 0 12px 26px rgba(2, 6, 23, 0.35);
+      opacity: 0;
+      transform: translateY(8px);
+      animation: riseIn 0.45s var(--ease) forwards;
+    }
+
+    .summary .chip:nth-child(2) { animation-delay: 0.05s; }
+    .summary .chip:nth-child(3) { animation-delay: 0.1s; }
+    .summary .chip:nth-child(4) { animation-delay: 0.15s; }
+
+    .chip .label { color: var(--muted); font-size: 12px; }
+    .chip .value { margin-top: 6px; font-size: 20px; font-weight: 700; }
+    .status-online { font-size: 16px; color: #86efac; }
+
+    .flash {
+      background: #064e3b;
+      border: 1px solid #10b98166;
+      color: #d1fae5;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+    }
+
+    .card h3 {
+      margin: 0 0 12px;
+      color: #bae6fd;
+      font-size: 16px;
+    }
+
+    .table-wrap { overflow: auto; }
+
+    table { min-width: 640px; }
+
+    td, th { white-space: nowrap; }
+
+    input,
+    select { min-width: 120px; }
+
+    .qty-input { width: 80px; min-width: 80px; }
+
+    .form-actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <strong>RezaFood POS</strong>
+      <span class="muted">کاربر: {{ user.username }}</span>
+    </div>
+    <div class="actions">
+      {% if user.role == 'admin' %}
+        <a class="link-btn" href="/reports">📊 گزارش‌ها</a>
+      {% endif %}
+      <form method="post" action="/logout"><button type="submit">خروج</button></form>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="summary">
+      <div class="chip">
+        <div class="label">تعداد محصولات</div>
+        <div class="value">{{ products|length }}</div>
+      </div>
+      <div class="chip">
+        <div class="label">آخرین سفارش‌ها</div>
+        <div class="value">{{ orders|length }}</div>
+      </div>
+      <div class="chip">
+        <div class="label">روش‌های پرداخت</div>
+        <div class="value">{{ payment_methods|length }}</div>
+      </div>
+      <div class="chip">
+        <div class="label">وضعیت</div>
+        <div class="value status-online">آنلاین</div>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash">{{ messages[-1] }}</div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="card">
+      <h3>ثبت سفارش</h3>
+      <form method="post" action="/orders">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>محصول</th><th>قیمت</th><th>موجودی</th><th>تعداد</th></tr>
+            </thead>
+            <tbody>
+              {% for p in products %}
+              <tr>
+                <td>
+                  {{ p.name }}
+                  <input type="hidden" name="product_id" value="{{ p.id }}">
+                </td>
+                <td>{{ '%.2f'|format(p.price) }}</td>
+                <td>{{ p.stock }}</td>
+                <td><input class="qty-input" name="quantity" type="number" min="0" value="0"></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="form-actions">
+          <select name="payment_method">
+            {% for m in payment_methods %}
+              <option value="{{ m }}">{{ m }}</option>
+            {% endfor %}
+          </select>
+          <select name="order_type">
+            {% for t in order_types %}
+              <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit">ثبت سفارش</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>آخرین سفارش‌ها</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>صندوقدار</th><th>روش پرداخت</th><th>مبلغ</th><th>زمان</th></tr>
+          </thead>
+          <tbody>
+            {% for o in orders %}
+            <tr>
+              <td>{{ o.id }}</td>
+              <td>{{ o.cashier_name }}</td>
+              <td>{{ o.payment_method }}</td>
+              <td>{{ '%.2f'|format(o.total) }}</td>
+              <td>{{ o.created_at }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

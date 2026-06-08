@@ -10,8 +10,40 @@ from __future__ import annotations
 import sqlite3
 from typing import Any, Dict, List, Optional
 
-from config import DB_NAME
-from utils import hash_password, now_str
+from config import DB_NAME, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME
+from utils import check_password, hash_password, now_str
+
+
+# ---------------------------------------------------------------------------
+# Schema migration registry
+# ---------------------------------------------------------------------------
+
+# Each entry is (name, sql).  Migrations are applied in order; once applied
+# they are recorded in the *schema_migrations* table so they are never run
+# twice.  To add a new migration, append an entry here — no other code
+# changes are needed.
+_SCHEMA_MIGRATIONS = [
+    (
+        "001_add_discount_amount_to_orders",
+        "ALTER TABLE orders ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0",
+    ),
+    (
+        "002_add_vat_rate_to_products",
+        "ALTER TABLE products ADD COLUMN vat_rate REAL NOT NULL DEFAULT 7",
+    ),
+    (
+        "003_add_order_type_to_orders",
+        "ALTER TABLE orders ADD COLUMN order_type TEXT NOT NULL DEFAULT 'Take Away'",
+    ),
+    (
+        "004_add_applied_vat_rate_to_order_items",
+        "ALTER TABLE order_items ADD COLUMN applied_vat_rate REAL NOT NULL DEFAULT 7",
+    ),
+    (
+        "005_add_must_change_password_to_users",
+        "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0",
+    ),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +144,7 @@ class Database:
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             username     TEXT    UNIQUE NOT NULL,
             password_hash TEXT   NOT NULL,
+            must_change_password INTEGER NOT NULL DEFAULT 0,
             role         TEXT    NOT NULL DEFAULT 'cashier',
             created_at   TEXT    NOT NULL
         );
@@ -171,55 +204,76 @@ class Database:
         self.conn.commit()
 
     def _migrate_schema(self) -> None:
-        """Apply incremental schema migrations for older databases."""
-        # 1. discount_amount in orders
-        existing_orders_cols = {
-            row[1] for row in self.conn.execute("PRAGMA table_info(orders)")
+        """Apply any pending schema migrations in registration order.
+
+        Migrations are tracked in the *schema_migrations* table so each one
+        runs at most once, regardless of how many times the application
+        starts.  Adding a new migration requires only appending an entry to
+        :data:`_SCHEMA_MIGRATIONS` — no further code changes are needed.
+        """
+        self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                name       TEXT PRIMARY KEY,
+                applied_at TEXT NOT NULL
+            )
+            """
+        )
+        self.conn.commit()
+
+        applied = {
+            row[0]
+            for row in self.conn.execute("SELECT name FROM schema_migrations")
         }
-        if "discount_amount" not in existing_orders_cols:
+
+        for name, sql in _SCHEMA_MIGRATIONS:
+            if name in applied:
+                continue
+            try:
+                self.conn.execute(sql)
+            except sqlite3.OperationalError:
+                # Column already exists (fresh DB built by init_schema); mark
+                # the migration as applied without re-running the DDL.
+                pass
             self.conn.execute(
-                "ALTER TABLE orders ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0"
+                "INSERT OR IGNORE INTO schema_migrations (name, applied_at) VALUES (?,?)",
+                (name, now_str()),
             )
             self.conn.commit()
 
-        # 2. vat_rate in products
-        existing_products_cols = {
-            row[1] for row in self.conn.execute("PRAGMA table_info(products)")
-        }
-        if "vat_rate" not in existing_products_cols:
+        # Enforce password rotation for any admin account still using the
+        # default password (covers legacy databases that pre-date the
+        # must_change_password column).
+        admin = self.conn.execute(
+            "SELECT id, password_hash FROM users WHERE username=?",
+            (DEFAULT_ADMIN_USERNAME,),
+        ).fetchone()
+        if admin and check_password(DEFAULT_ADMIN_PASSWORD, admin["password_hash"]):
             self.conn.execute(
-                "ALTER TABLE products ADD COLUMN vat_rate REAL NOT NULL DEFAULT 7"
-            )
-            self.conn.commit()
-
-        # 3. order_type in orders
-        if "order_type" not in existing_orders_cols:
-            self.conn.execute(
-                "ALTER TABLE orders ADD COLUMN order_type TEXT NOT NULL DEFAULT 'take_away'"
-            )
-            self.conn.commit()
-
-        # 4. applied_vat_rate in order_items
-        existing_items_cols = {
-            row[1] for row in self.conn.execute("PRAGMA table_info(order_items)")
-        }
-        if "applied_vat_rate" not in existing_items_cols:
-            self.conn.execute(
-                "ALTER TABLE order_items ADD COLUMN applied_vat_rate REAL NOT NULL DEFAULT 7"
+                "UPDATE users SET must_change_password=1 WHERE id=?",
+                (admin["id"],),
             )
             self.conn.commit()
 
     def seed_default_admin(self) -> None:
         """Insert the default admin account if it does not exist."""
         row = self.conn.execute(
-            "SELECT id FROM users WHERE username='admin'"
+            "SELECT id FROM users WHERE username=?",
+            (DEFAULT_ADMIN_USERNAME,),
         ).fetchone()
         if not row:
             ts = now_str()
             self.conn.execute(
-                "INSERT INTO users (username, password_hash, role, created_at)"
-                " VALUES (?,?,?,?)",
-                ("admin", hash_password("admin123"), "admin", ts),
+                "INSERT INTO users "
+                "(username, password_hash, must_change_password, role, created_at)"
+                " VALUES (?,?,?,?,?)",
+                (
+                    DEFAULT_ADMIN_USERNAME,
+                    hash_password(DEFAULT_ADMIN_PASSWORD),
+                    1,
+                    "admin",
+                    ts,
+                ),
             )
             self.conn.commit()
 
@@ -297,6 +351,9 @@ class Database:
 
     def get_all_orders(self) -> List[sqlite3.Row]:
         return self.orders.get_all()
+
+    def get_recent_orders(self, limit: int = 10) -> List[sqlite3.Row]:
+        return self.orders.get_recent(limit)
 
     def get_orders_filtered(
         self,
