@@ -4,107 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RezaFood Web POS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/web_shared.css') }}">
   <style>
     :root {
       --bg: #0f172a;
       --bg-2: #111827;
       --panel: rgba(15, 23, 42, 0.82);
       --panel-border: rgba(148, 163, 184, 0.22);
-      --text: #e2e8f0;
       --muted: #94a3b8;
-      --accent: #38bdf8;
-      --accent-2: #22d3ee;
       --success: #22c55e;
       --radius: 14px;
-      --ease: cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: Inter, "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
-      color: var(--text);
-      background:
-        radial-gradient(circle at 15% 15%, #0284c733, transparent 35%),
-        radial-gradient(circle at 85% 85%, #22d3ee22, transparent 32%),
-        linear-gradient(160deg, var(--bg), var(--bg-2));
-      animation: bgFloat 18s ease-in-out infinite alternate;
-    }
-
-    .top {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      padding: 14px 18px;
-      background: rgba(15, 23, 42, 0.88);
-      border-bottom: 1px solid var(--panel-border);
-      backdrop-filter: blur(8px);
     }
 
     .top strong { font-size: 15px; }
     .top .muted { color: var(--muted); font-size: 12px; display: block; margin-top: 2px; }
-
-    .actions { display: flex; gap: 8px; align-items: center; }
-
-    .link-btn,
-    button {
-      border: 1px solid transparent;
-      border-radius: 10px;
-      padding: 9px 12px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      text-decoration: none;
-      transition: .25s var(--ease);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .link-btn {
-      color: #cffafe;
-      background: #0e7490;
-      box-shadow: 0 8px 18px #0e749055;
-    }
-
-    .link-btn:hover { transform: translateY(-2px); }
-
-    button {
-      color: #082f49;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      box-shadow: 0 10px 20px #22d3ee33;
-    }
-
-    .link-btn::before,
-    button::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(115deg, transparent 20%, #ffffff40 48%, transparent 75%);
-      transform: translateX(135%);
-      transition: transform 0.45s var(--ease);
-    }
-
-    .link-btn:hover::before,
-    button:hover::before { transform: translateX(-40%); }
-
-    button:hover { transform: translateY(-2px); box-shadow: 0 14px 26px #22d3ee47; }
-    .link-btn:active,
-    button:active { transform: translateY(0) scale(0.99); }
-    .link-btn:focus-visible,
-    button:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; }
-
-    .container {
-      width: min(1200px, 100%);
-      margin: 0 auto;
-      padding: 18px;
-      display: grid;
-      gap: 14px;
-    }
 
     .summary {
       display: grid;
@@ -129,6 +42,7 @@
 
     .chip .label { color: var(--muted); font-size: 12px; }
     .chip .value { margin-top: 6px; font-size: 20px; font-weight: 700; }
+    .status-online { font-size: 16px; color: #86efac; }
 
     .flash {
       background: #064e3b;
@@ -139,18 +53,6 @@
       font-size: 13px;
     }
 
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--panel-border);
-      border-radius: var(--radius);
-      padding: 14px;
-      box-shadow: 0 16px 30px rgba(2, 6, 23, 0.38);
-      opacity: 0;
-      transform: translateY(10px);
-      animation: riseIn 0.5s var(--ease) forwards;
-      animation-delay: 0.12s;
-    }
-
     .card h3 {
       margin: 0 0 12px;
       color: #bae6fd;
@@ -159,42 +61,12 @@
 
     .table-wrap { overflow: auto; }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 640px;
-    }
+    table { min-width: 640px; }
 
-    td, th {
-      padding: 9px 8px;
-      border-bottom: 1px solid #334155;
-      font-size: 13px;
-      text-align: right;
-      white-space: nowrap;
-    }
-
-    th { color: #93c5fd; font-weight: 700; }
-
-    tbody tr { transition: background 0.2s ease, transform 0.2s ease; }
-    tbody tr:hover { background: #1e293b99; transform: translateX(-2px); }
+    td, th { white-space: nowrap; }
 
     input,
-    select {
-      border: 1px solid #334155;
-      border-radius: 10px;
-      padding: 9px;
-      background: #0f172a;
-      color: var(--text);
-      font-size: 13px;
-      min-width: 120px;
-    }
-
-    input:focus,
-    select:focus {
-      outline: none;
-      border-color: #38bdf8;
-      box-shadow: 0 0 0 3px #38bdf844;
-    }
+    select { min-width: 120px; }
 
     .qty-input { width: 80px; min-width: 80px; }
 
@@ -204,24 +76,6 @@
       gap: 8px;
       flex-wrap: wrap;
       align-items: center;
-    }
-
-    @media (max-width: 700px) {
-      .top { flex-wrap: wrap; }
-      .actions { width: 100%; justify-content: flex-end; }
-      .container { padding: 14px; }
-    }
-
-    @keyframes riseIn {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes bgFloat {
-      0% { background-position: 0% 0%, 100% 100%, 0% 0%; }
-      100% { background-position: 6% 4%, 94% 96%, 0% 0%; }
     }
   </style>
 </head>
@@ -255,7 +109,7 @@
       </div>
       <div class="chip">
         <div class="label">وضعیت</div>
-        <div class="value" style="font-size:16px;color:#86efac;">آنلاین</div>
+        <div class="value status-online">آنلاین</div>
       </div>
     </div>
 

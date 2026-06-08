@@ -4,33 +4,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ورود - RezaFood Web</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/web_shared.css') }}">
   <style>
     :root {
-      --bg-1: #0f172a;
+      --bg: #0f172a;
       --bg-2: #1e293b;
       --panel: rgba(15, 23, 42, 0.72);
       --panel-border: rgba(148, 163, 184, 0.24);
-      --text: #e2e8f0;
       --muted: #94a3b8;
-      --accent: #38bdf8;
-      --accent-2: #22d3ee;
       --danger: #fb7185;
       --radius: 16px;
-      --ease: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
-    * { box-sizing: border-box; }
-
     body {
-      margin: 0;
       min-height: 100vh;
-      font-family: Inter, "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
-      color: var(--text);
       background:
         radial-gradient(circle at 15% 15%, #0ea5e933, transparent 35%),
         radial-gradient(circle at 85% 85%, #22d3ee22, transparent 30%),
-        linear-gradient(160deg, var(--bg-1), var(--bg-2));
-      animation: bgFloat 16s ease-in-out infinite alternate;
+        linear-gradient(160deg, var(--bg), var(--bg-2));
     }
 
     .wrap {
@@ -44,9 +35,6 @@
     .card {
       width: 100%;
       max-width: 420px;
-      background: var(--panel);
-      border: 1px solid var(--panel-border);
-      border-radius: var(--radius);
       padding: 24px;
       backdrop-filter: blur(10px);
       box-shadow: 0 20px 50px rgba(2, 6, 23, 0.55);
@@ -88,9 +76,7 @@
       font-size: 14px;
     }
 
-    .field {
-      margin-top: 10px;
-    }
+    .field { margin-top: 10px; }
 
     label {
       display: block;
@@ -102,53 +88,17 @@
     input,
     button {
       width: 100%;
-      border: 1px solid transparent;
       border-radius: 12px;
       padding: 12px;
       font-size: 14px;
-      transition: 0.25s var(--ease);
-    }
-
-    input {
-      background: #0f172a;
-      color: var(--text);
-      border-color: #334155;
     }
 
     input::placeholder { color: #64748b; }
 
-    input:focus {
-      outline: none;
-      border-color: #38bdf8;
-      box-shadow: 0 0 0 3px #38bdf844;
-    }
-
     button {
       margin-top: 14px;
-      cursor: pointer;
-      font-weight: 700;
-      color: #082f49;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      position: relative;
-      overflow: hidden;
       isolation: isolate;
-      box-shadow: 0 12px 24px #22d3ee33;
     }
-
-    button::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(115deg, transparent 20%, #ffffff4d 48%, transparent 75%);
-      transform: translateX(140%);
-      transition: transform 0.45s var(--ease);
-      z-index: -1;
-    }
-
-    button:hover { transform: translateY(-2px) scale(1.01); box-shadow: 0 14px 28px #22d3ee4d; }
-    button:hover::before { transform: translateX(-40%); }
-    button:active { transform: translateY(0) scale(0.99); box-shadow: 0 6px 12px #22d3ee33; }
-    button:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; }
 
     .flash {
       margin-top: 12px;
@@ -158,23 +108,6 @@
       border: 1px solid #fb718555;
       color: #fecdd3;
       font-size: 13px;
-    }
-
-    @keyframes cardIn {
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    @keyframes pulseDot {
-      0%, 100% { box-shadow: 0 0 10px #22d3ee55; transform: scale(1); }
-      50% { box-shadow: 0 0 20px #22d3eeaa; transform: scale(1.09); }
-    }
-
-    @keyframes bgFloat {
-      0% { background-position: 0% 0%, 100% 100%, 0% 0%; }
-      100% { background-position: 8% 4%, 92% 96%, 0% 0%; }
     }
   </style>
 </head>
