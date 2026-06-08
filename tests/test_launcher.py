@@ -65,7 +65,7 @@ class TestMain:
 
         assert called == {"desktop": 0, "web": 1}
 
-    def test_main_exits_when_desktop_is_forced_but_unavailable(self, monkeypatch):
+    def test_main_exits_when_desktop_is_forced_but_unavailable(self, monkeypatch, capsys):
         monkeypatch.setattr(
             launcher,
             "choose_mode",
@@ -75,5 +75,9 @@ class TestMain:
             ),
         )
 
-        with pytest.raises(SystemExit):
+        with pytest.raises(SystemExit) as exc_info:
             launcher.main(["--desktop"])
+
+        captured = capsys.readouterr()
+        assert exc_info.value.code == 1
+        assert "Tkinter is not installed" in captured.err

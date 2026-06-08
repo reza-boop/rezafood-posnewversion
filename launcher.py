@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import Optional, Sequence, Tuple
+from collections.abc import Sequence
 
 
 def _tkinter_available() -> bool:
@@ -22,7 +22,7 @@ def _has_graphical_display() -> bool:
     return True
 
 
-def choose_mode(preferred_mode: Optional[str] = None) -> Tuple[str, Optional[str]]:
+def choose_mode(preferred_mode: str | None = None) -> tuple[str, str | None]:
     mode = (preferred_mode or os.getenv("REZAFOOD_RUN_MODE", "auto")).strip().lower()
     if mode not in {"auto", "desktop", "web"}:
         raise ValueError("REZAFOOD_RUN_MODE must be one of: auto, desktop, web")
@@ -56,7 +56,7 @@ def _run_web() -> None:
     web_main()
 
 
-def main(argv: Optional[Sequence[str]] = None) -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Run RezaFood POS")
     parser.add_argument(
         "--desktop",
@@ -70,7 +70,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    preferred_mode: Optional[str] = None
+    preferred_mode: str | None = None
     if args.desktop and args.web:
         parser.error("Choose only one of --desktop or --web.")
     elif args.desktop:

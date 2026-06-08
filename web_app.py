@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import secrets
-from typing import Any, Dict, List
+from typing import Any
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
@@ -31,7 +31,7 @@ product_service = ProductService(db)
 RECENT_ORDERS_LIMIT = 10
 
 
-def _current_user() -> Dict[str, Any] | None:
+def _current_user() -> dict[str, Any] | None:
     user_id = session.get("user_id")
     if not user_id:
         return None
@@ -105,7 +105,7 @@ def create_order() -> str:
         for product in product_service.get_all_products()
     }
 
-    items: List[Dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
     for pid_raw, qty_raw in zip(product_ids, quantities):
         try:
             pid = int(pid_raw)
@@ -152,7 +152,7 @@ def create_order() -> str:
 
 
 @app.get("/health")
-def health() -> Dict[str, str]:
+def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
