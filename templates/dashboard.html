@@ -21,7 +21,12 @@
 <body>
   <div class="top">
     <div>کاربر: {{ user.username }}</div>
-    <form method="post" action="/logout"><button type="submit">خروج</button></form>
+    <div style="display:flex; gap:8px; align-items:center;">
+      {% if user.role == 'admin' %}
+        <a href="/reports" style="color:#89b4fa; text-decoration:none; font-weight:bold;">📊 گزارش‌ها</a>
+      {% endif %}
+      <form method="post" action="/logout"><button type="submit">خروج</button></form>
+    </div>
   </div>
 
   <div class="container">

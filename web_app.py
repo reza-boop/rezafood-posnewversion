@@ -17,6 +17,7 @@ from logger import logger
 from runtime_bootstrap import resolve_web_bind
 from services.order_service import OrderService
 from services.product_service import ProductService
+from services.report_service import ReportService
 from utils import check_password, ensure_dirs
 
 app = Flask(__name__)
@@ -24,6 +25,7 @@ ensure_dirs()
 db = Database()
 order_service = OrderService(db)
 product_service = ProductService(db)
+report_service = ReportService(db)
 RECENT_ORDERS_LIMIT = 10
 INVALID_ORDER_FORM_MESSAGE = "درخواست سفارش نامعتبر است. لطفاً دوباره تلاش کنید."
 
@@ -177,6 +179,38 @@ def create_order() -> str:
     db.add_audit_log(user["id"], user["username"], "web_create_order", f"order_id={order_id}")
     flash(f"سفارش #{order_id} با موفقیت ثبت شد.")
     return redirect(url_for("dashboard"))
+
+
+@app.get("/reports")
+def reports_page() -> str:
+    user = _current_user()
+    if not user:
+        return redirect(url_for("login_page"))
+    if user["role"] != "admin":
+        flash("دسترسی به گزارش‌ها فقط برای ادمین است.")
+        return redirect(url_for("dashboard"))
+
+    import json
+
+    daily = report_service.daily_revenue(days=30)
+    by_payment = report_service.revenue_by_payment()
+    by_category = report_service.sales_by_category()
+    top_cashiers = report_service.top_cashiers(limit=5)
+    hourly = report_service.hourly_distribution()
+
+    # Fill missing hours with zero so the chart always shows 0-23
+    hourly_map = {row["hour"]: row["orders"] for row in hourly}
+    hourly_full = [{"hour": h, "orders": hourly_map.get(h, 0)} for h in range(24)]
+
+    return render_template(
+        "reports.html",
+        user=user,
+        daily_json=json.dumps(daily),
+        by_payment_json=json.dumps(by_payment),
+        by_category_json=json.dumps(by_category),
+        top_cashiers_json=json.dumps(top_cashiers),
+        hourly_json=json.dumps(hourly_full),
+    )
 
 
 @app.get("/health")

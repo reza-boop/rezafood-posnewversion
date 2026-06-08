@@ -62,7 +62,53 @@ class TestDashboard:
         assert called["limit"] == web_app.RECENT_ORDERS_LIMIT
 
 
-class TestCreateOrder:
+class TestReportsPage:
+    def _login_as(self, client, role: str = "admin") -> None:
+        with client.session_transaction() as sess:
+            sess["user_id"] = 1
+            sess["username"] = "admin"
+            sess["role"] = role
+
+    def _make_report_service(self):
+        return SimpleNamespace(
+            daily_revenue=lambda days=30: [],
+            revenue_by_payment=lambda: [],
+            sales_by_category=lambda: [],
+            top_cashiers=lambda limit=5: [],
+            hourly_distribution=lambda: [],
+        )
+
+    def test_redirects_unauthenticated(self, client):
+        response = client.get("/reports")
+        assert response.status_code == 302
+        assert "/login" in response.headers["Location"]
+
+    def test_admin_can_access_reports(self, client, monkeypatch):
+        monkeypatch.setattr(web_app, "report_service", self._make_report_service())
+        self._login_as(client, "admin")
+        response = client.get("/reports")
+        assert response.status_code == 200
+        assert "گزارش" in response.data.decode()
+
+    def test_non_admin_is_redirected(self, client, monkeypatch):
+        monkeypatch.setattr(web_app, "report_service", self._make_report_service())
+        self._login_as(client, "cashier")
+        response = client.get("/reports")
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith("/")
+
+    def test_hourly_distribution_padded_to_24_hours(self, client, monkeypatch):
+        stub = self._make_report_service()
+        stub.hourly_distribution = lambda: [{"hour": 10, "orders": 5}]
+        monkeypatch.setattr(web_app, "report_service", stub)
+        self._login_as(client, "admin")
+        response = client.get("/reports")
+        assert response.status_code == 200
+        body = response.data.decode()
+        # All 24 hour labels should be present in the rendered JSON
+        for h in range(24):
+            assert f'"hour": {h}' in body
+
     def test_rejects_mismatched_product_and_quantity_lists(self, client, monkeypatch):
         monkeypatch.setattr(
             web_app,
