@@ -174,6 +174,25 @@ class TestOrders:
         assert order["discount_amount"] == 0.50
         assert order["total"] == 4.50
 
+    def test_get_recent_orders_limits_results(self, db):
+        pid = self._add_product(db, "Recent", stock=20)
+        items = [
+            {
+                "product_id": pid,
+                "product_name": "Recent",
+                "quantity": 1,
+                "unit_price": 12.00,
+                "subtotal": 12.00,
+            }
+        ]
+        for _ in range(3):
+            db.create_order(self._cashier_id(db), "admin", 12.00, "Cash", items)
+
+        orders = db.get_recent_orders(2)
+
+        assert len(orders) == 2
+        assert orders[0]["id"] > orders[1]["id"]
+
 
 # ---------------------------------------------------------------------------
 # Discounts

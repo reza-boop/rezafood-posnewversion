@@ -142,6 +142,9 @@ You can also run a mobile-friendly web version and open it from Android:
 REZAFOOD_WEB_SECRET="change-this-secret" python web_app.py --host 0.0.0.0 --port 8000
 ```
 
+If you bind web mode to a non-local interface such as `0.0.0.0`, `REZAFOOD_WEB_SECRET`
+must be set. Local-only runs on `127.0.0.1` can still use an ephemeral secret for quick testing.
+
 Or force web mode through the smart launcher:
 
 ```bash

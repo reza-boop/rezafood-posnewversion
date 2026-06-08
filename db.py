@@ -264,7 +264,8 @@ class Database:
         if not row:
             ts = now_str()
             self.conn.execute(
-                "INSERT INTO users (username, password_hash, must_change_password, role, created_at)"
+                "INSERT INTO users "
+                "(username, password_hash, must_change_password, role, created_at)"
                 " VALUES (?,?,?,?,?)",
                 (
                     DEFAULT_ADMIN_USERNAME,
@@ -350,6 +351,9 @@ class Database:
 
     def get_all_orders(self) -> List[sqlite3.Row]:
         return self.orders.get_all()
+
+    def get_recent_orders(self, limit: int = 10) -> List[sqlite3.Row]:
+        return self.orders.get_recent(limit)
 
     def get_orders_filtered(
         self,

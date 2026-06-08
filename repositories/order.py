@@ -33,7 +33,8 @@ class OrderRepository(BaseRepository):
         with self.conn:
             cur = self.conn.execute(
                 "INSERT INTO orders"
-                " (cashier_id, cashier_name, total, discount_amount, payment_method, order_type, created_at)"
+                " (cashier_id, cashier_name, total, discount_amount, payment_method,"
+                " order_type, created_at)"
                 " VALUES (?,?,?,?,?,?,?)",
                 (cashier_id, cashier_name, total, discount_amount, payment_method, order_type, ts),
             )
@@ -43,7 +44,8 @@ class OrderRepository(BaseRepository):
                 vat_rate = item.get("applied_vat_rate", 7.0)
                 self.conn.execute(
                     "INSERT INTO order_items"
-                    " (order_id, product_id, product_name, quantity, unit_price, applied_vat_rate, subtotal)"
+                    " (order_id, product_id, product_name, quantity, unit_price,"
+                    " applied_vat_rate, subtotal)"
                     " VALUES (?,?,?,?,?,?,?)",
                     (
                         order_id,
@@ -72,6 +74,13 @@ class OrderRepository(BaseRepository):
     def get_all(self) -> List[sqlite3.Row]:
         return self.conn.execute(
             "SELECT * FROM orders ORDER BY id DESC"
+        ).fetchall()
+
+    def get_recent(self, limit: int) -> List[sqlite3.Row]:
+        safe_limit = max(1, int(limit))
+        return self.conn.execute(
+            "SELECT * FROM orders ORDER BY id DESC LIMIT ?",
+            (safe_limit,),
         ).fetchall()
 
     def get_filtered(

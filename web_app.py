@@ -20,19 +20,34 @@ from services.product_service import ProductService
 from utils import check_password, ensure_dirs
 
 app = Flask(__name__)
-secret_key = os.getenv("REZAFOOD_WEB_SECRET")
-if not secret_key:
-    secret_key = secrets.token_hex(32)
-    logger.warning(
-        "REZAFOOD_WEB_SECRET is not set; using an ephemeral secret key."
-    )
-app.secret_key = secret_key
-
 ensure_dirs()
 db = Database()
 order_service = OrderService(db)
 product_service = ProductService(db)
 RECENT_ORDERS_LIMIT = 10
+INVALID_ORDER_FORM_MESSAGE = "درخواست سفارش نامعتبر است. لطفاً دوباره تلاش کنید."
+
+
+def _is_loopback_host(host: str) -> bool:
+    return host.strip().lower() in {"127.0.0.1", "localhost", "::1"}
+
+
+def configure_app_secret(host: str) -> None:
+    secret_key = os.getenv("REZAFOOD_WEB_SECRET")
+    if secret_key:
+        app.secret_key = secret_key
+        return
+
+    if _is_loopback_host(host):
+        app.secret_key = secrets.token_hex(32)
+        logger.warning(
+            "REZAFOOD_WEB_SECRET is not set; using an ephemeral secret key for local-only web mode."
+        )
+        return
+
+    raise RuntimeError(
+        "REZAFOOD_WEB_SECRET must be set when exposing web mode on a non-local interface."
+    )
 
 
 def _current_user() -> dict[str, Any] | None:
@@ -82,7 +97,7 @@ def dashboard() -> str:
         return redirect(url_for("login_page"))
 
     products = product_service.get_all_products()
-    orders = db.get_all_orders()[:RECENT_ORDERS_LIMIT]
+    orders = db.get_recent_orders(RECENT_ORDERS_LIMIT)
     return render_template(
         "dashboard.html",
         user=user,
@@ -103,6 +118,15 @@ def create_order() -> str:
     order_type = request.form.get("order_type", "")
     product_ids = request.form.getlist("product_id")
     quantities = request.form.getlist("quantity")
+
+    if len(product_ids) != len(quantities):
+        logger.warning(
+            "Rejected malformed order form with %s product ids and %s quantities.",
+            len(product_ids),
+            len(quantities),
+        )
+        flash(INVALID_ORDER_FORM_MESSAGE)
+        return redirect(url_for("dashboard"))
 
     products_by_id = {
         int(product["id"]): product
@@ -176,6 +200,12 @@ def main(argv: Sequence[str] | None = None) -> None:
     try:
         host, port = resolve_web_bind(args.host, args.port)
     except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(2) from exc
+
+    try:
+        configure_app_secret(host)
+    except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         raise SystemExit(2) from exc
 
