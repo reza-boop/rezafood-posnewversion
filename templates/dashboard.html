@@ -5,31 +5,213 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RezaFood Web POS</title>
   <style>
-    body { font-family: sans-serif; margin: 0; background: #1e1e2e; color: #cdd6f4; }
-    .top { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #313244; }
-    .container { padding: 12px; display: grid; gap: 12px; }
-    .card { background: #313244; border-radius: 10px; padding: 12px; }
-    table { width: 100%; border-collapse: collapse; }
-    td, th { padding: 6px; border-bottom: 1px solid #45475a; font-size: 14px; }
-    input, select, button { padding: 8px; border: none; border-radius: 6px; }
-    input, select { background: #45475a; color: #fff; }
-    button { background: #89b4fa; color: #1e1e2e; font-weight: bold; }
-    .qty-input { width: 72px; }
-    .flash { background: #a6e3a1; color: #1e1e2e; padding: 8px; border-radius: 8px; }
+    :root {
+      --bg: #0f172a;
+      --bg-2: #111827;
+      --panel: rgba(15, 23, 42, 0.82);
+      --panel-border: rgba(148, 163, 184, 0.22);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-2: #22d3ee;
+      --success: #22c55e;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 15%, #0284c733, transparent 35%),
+        radial-gradient(circle at 85% 85%, #22d3ee22, transparent 32%),
+        linear-gradient(160deg, var(--bg), var(--bg-2));
+    }
+
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: rgba(15, 23, 42, 0.88);
+      border-bottom: 1px solid var(--panel-border);
+      backdrop-filter: blur(8px);
+    }
+
+    .top strong { font-size: 15px; }
+    .top .muted { color: var(--muted); font-size: 12px; display: block; margin-top: 2px; }
+
+    .actions { display: flex; gap: 8px; align-items: center; }
+
+    .link-btn,
+    button {
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: .2s ease;
+    }
+
+    .link-btn {
+      color: #cffafe;
+      background: #0e7490;
+    }
+
+    .link-btn:hover { transform: translateY(-1px); }
+
+    button {
+      color: #082f49;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    }
+
+    button:hover { transform: translateY(-1px); box-shadow: 0 8px 16px #22d3ee33; }
+
+    .container {
+      width: min(1200px, 100%);
+      margin: 0 auto;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .summary {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    }
+
+    .chip {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      padding: 12px;
+      box-shadow: 0 12px 26px rgba(2, 6, 23, 0.35);
+    }
+
+    .chip .label { color: var(--muted); font-size: 12px; }
+    .chip .value { margin-top: 6px; font-size: 20px; font-weight: 700; }
+
+    .flash {
+      background: #064e3b;
+      border: 1px solid #10b98166;
+      color: #d1fae5;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: 0 16px 30px rgba(2, 6, 23, 0.38);
+    }
+
+    .card h3 {
+      margin: 0 0 12px;
+      color: #bae6fd;
+      font-size: 16px;
+    }
+
+    .table-wrap { overflow: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 640px;
+    }
+
+    td, th {
+      padding: 9px 8px;
+      border-bottom: 1px solid #334155;
+      font-size: 13px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    th { color: #93c5fd; font-weight: 700; }
+
+    tbody tr:hover { background: #1e293b99; }
+
+    input,
+    select {
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 9px;
+      background: #0f172a;
+      color: var(--text);
+      font-size: 13px;
+      min-width: 120px;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px #38bdf844;
+    }
+
+    .qty-input { width: 80px; min-width: 80px; }
+
+    .form-actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    @media (max-width: 700px) {
+      .top { flex-wrap: wrap; }
+      .actions { width: 100%; justify-content: flex-end; }
+      .container { padding: 14px; }
+    }
   </style>
 </head>
 <body>
   <div class="top">
-    <div>کاربر: {{ user.username }}</div>
-    <div style="display:flex; gap:8px; align-items:center;">
+    <div>
+      <strong>RezaFood POS</strong>
+      <span class="muted">کاربر: {{ user.username }}</span>
+    </div>
+    <div class="actions">
       {% if user.role == 'admin' %}
-        <a href="/reports" style="color:#89b4fa; text-decoration:none; font-weight:bold;">📊 گزارش‌ها</a>
+        <a class="link-btn" href="/reports">📊 گزارش‌ها</a>
       {% endif %}
       <form method="post" action="/logout"><button type="submit">خروج</button></form>
     </div>
   </div>
 
   <div class="container">
+    <div class="summary">
+      <div class="chip">
+        <div class="label">تعداد محصولات</div>
+        <div class="value">{{ products|length }}</div>
+      </div>
+      <div class="chip">
+        <div class="label">آخرین سفارش‌ها</div>
+        <div class="value">{{ orders|length }}</div>
+      </div>
+      <div class="chip">
+        <div class="label">روش‌های پرداخت</div>
+        <div class="value">{{ payment_methods|length }}</div>
+      </div>
+      <div class="chip">
+        <div class="label">وضعیت</div>
+        <div class="value" style="font-size:16px;color:#86efac;">آنلاین</div>
+      </div>
+    </div>
+
     {% with messages = get_flashed_messages() %}
       {% if messages %}
         <div class="flash">{{ messages[-1] }}</div>
@@ -39,25 +221,27 @@
     <div class="card">
       <h3>ثبت سفارش</h3>
       <form method="post" action="/orders">
-        <table>
-          <thead>
-            <tr><th>محصول</th><th>قیمت</th><th>موجودی</th><th>تعداد</th></tr>
-          </thead>
-          <tbody>
-            {% for p in products %}
-            <tr>
-              <td>
-                {{ p.name }}
-                <input type="hidden" name="product_id" value="{{ p.id }}">
-              </td>
-              <td>{{ '%.2f'|format(p.price) }}</td>
-              <td>{{ p.stock }}</td>
-              <td><input class="qty-input" name="quantity" type="number" min="0" value="0"></td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>محصول</th><th>قیمت</th><th>موجودی</th><th>تعداد</th></tr>
+            </thead>
+            <tbody>
+              {% for p in products %}
+              <tr>
+                <td>
+                  {{ p.name }}
+                  <input type="hidden" name="product_id" value="{{ p.id }}">
+                </td>
+                <td>{{ '%.2f'|format(p.price) }}</td>
+                <td>{{ p.stock }}</td>
+                <td><input class="qty-input" name="quantity" type="number" min="0" value="0"></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="form-actions">
           <select name="payment_method">
             {% for m in payment_methods %}
               <option value="{{ m }}">{{ m }}</option>
@@ -75,22 +259,24 @@
 
     <div class="card">
       <h3>آخرین سفارش‌ها</h3>
-      <table>
-        <thead>
-          <tr><th>#</th><th>صندوقدار</th><th>روش پرداخت</th><th>مبلغ</th><th>زمان</th></tr>
-        </thead>
-        <tbody>
-          {% for o in orders %}
-          <tr>
-            <td>{{ o.id }}</td>
-            <td>{{ o.cashier_name }}</td>
-            <td>{{ o.payment_method }}</td>
-            <td>{{ '%.2f'|format(o.total) }}</td>
-            <td>{{ o.created_at }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>صندوقدار</th><th>روش پرداخت</th><th>مبلغ</th><th>زمان</th></tr>
+          </thead>
+          <tbody>
+            {% for o in orders %}
+            <tr>
+              <td>{{ o.id }}</td>
+              <td>{{ o.cashier_name }}</td>
+              <td>{{ o.payment_method }}</td>
+              <td>{{ '%.2f'|format(o.total) }}</td>
+              <td>{{ o.created_at }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </body>

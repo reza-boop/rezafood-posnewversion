@@ -5,22 +5,158 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ورود - RezaFood Web</title>
   <style>
-    body { font-family: sans-serif; background: #1e1e2e; color: #cdd6f4; margin: 0; }
-    .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
-    .card { width: 100%; max-width: 360px; background: #313244; border-radius: 12px; padding: 16px; }
-    input, button { width: 100%; padding: 10px; border-radius: 8px; border: none; margin-top: 10px; }
-    input { background: #45475a; color: #fff; }
-    button { background: #89b4fa; color: #1e1e2e; font-weight: bold; }
-    .flash { color: #f38ba8; margin-top: 8px; }
+    :root {
+      --bg-1: #0f172a;
+      --bg-2: #1e293b;
+      --panel: rgba(15, 23, 42, 0.72);
+      --panel-border: rgba(148, 163, 184, 0.24);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-2: #22d3ee;
+      --danger: #fb7185;
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 15%, #0ea5e933, transparent 35%),
+        radial-gradient(circle at 85% 85%, #22d3ee22, transparent 30%),
+        linear-gradient(160deg, var(--bg-1), var(--bg-2));
+    }
+
+    .wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 20px 50px rgba(2, 6, 23, 0.55);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 18px;
+      color: #e0f2fe;
+      font-weight: 700;
+      font-size: 20px;
+    }
+
+    .brand .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 14px #22d3ee88;
+    }
+
+    h2 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      text-align: center;
+    }
+
+    .subtitle {
+      margin: 0 0 16px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .field {
+      margin-top: 10px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+
+    input,
+    button {
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 14px;
+      transition: 0.2s ease;
+    }
+
+    input {
+      background: #0f172a;
+      color: var(--text);
+      border-color: #334155;
+    }
+
+    input::placeholder { color: #64748b; }
+
+    input:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px #38bdf844;
+    }
+
+    button {
+      margin-top: 14px;
+      cursor: pointer;
+      font-weight: 700;
+      color: #082f49;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    }
+
+    button:hover { transform: translateY(-1px); box-shadow: 0 8px 18px #22d3ee33; }
+
+    .flash {
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 10px;
+      background: #7f1d1d66;
+      border: 1px solid #fb718555;
+      color: #fecdd3;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <form class="card" method="post" action="/login">
-      <h2>ورود به RezaFood</h2>
-      <input name="username" placeholder="نام کاربری" required>
-      <input name="password" type="password" placeholder="رمز عبور" required>
+      <div class="brand"><span class="dot"></span><span>RezaFood POS</span></div>
+      <h2>ورود به حساب کاربری</h2>
+      <p class="subtitle">برای ادامه، نام کاربری و رمز عبور را وارد کنید</p>
+
+      <div class="field">
+        <label for="username">نام کاربری</label>
+        <input id="username" name="username" placeholder="مثال: admin" required>
+      </div>
+
+      <div class="field">
+        <label for="password">رمز عبور</label>
+        <input id="password" name="password" type="password" placeholder="••••••••" required>
+      </div>
+
       <button type="submit">ورود</button>
+
       {% with messages = get_flashed_messages() %}
         {% if messages %}
           <div class="flash">{{ messages[-1] }}</div>

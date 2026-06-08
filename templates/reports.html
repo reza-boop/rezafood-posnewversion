@@ -6,32 +6,189 @@
   <title>گزارش‌ها – RezaFood POS</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    body { font-family: sans-serif; margin: 0; background: #1e1e2e; color: #cdd6f4; }
-    .top { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #313244; }
-    .container { padding: 12px; display: grid; gap: 16px; }
-    .card { background: #313244; border-radius: 10px; padding: 16px; }
-    h3 { margin: 0 0 12px; font-size: 16px; color: #89b4fa; }
-    table { width: 100%; border-collapse: collapse; }
-    td, th { padding: 6px; border-bottom: 1px solid #45475a; font-size: 14px; }
-    th { color: #89b4fa; }
-    button { padding: 8px 14px; border: none; border-radius: 6px; background: #89b4fa; color: #1e1e2e; font-weight: bold; cursor: pointer; }
-    a { color: #89b4fa; text-decoration: none; font-weight: bold; }
-    .chart-wrap { position: relative; max-height: 280px; }
-    @media (min-width: 700px) {
-      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    :root {
+      --bg: #0b1120;
+      --bg-2: #111827;
+      --panel: rgba(15, 23, 42, 0.82);
+      --panel-border: rgba(148, 163, 184, 0.25);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-2: #22d3ee;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 10%, #0ea5e933, transparent 35%),
+        radial-gradient(circle at 90% 90%, #22d3ee22, transparent 30%),
+        linear-gradient(160deg, var(--bg), var(--bg-2));
+    }
+
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      background: rgba(15, 23, 42, 0.88);
+      border-bottom: 1px solid var(--panel-border);
+      backdrop-filter: blur(8px);
+    }
+
+    .meta { display: flex; flex-direction: column; gap: 2px; }
+    .meta strong { font-size: 15px; }
+    .meta span { color: var(--muted); font-size: 12px; }
+
+    .actions { display: flex; gap: 8px; align-items: center; }
+
+    a,
+    button {
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: .2s ease;
+    }
+
+    a { color: #cffafe; background: #0e7490; }
+    button {
+      color: #082f49;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    }
+
+    a:hover,
+    button:hover { transform: translateY(-1px); }
+
+    .container {
+      width: min(1220px, 100%);
+      margin: 0 auto;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .hero {
+      background: linear-gradient(130deg, #0f172a, #0f3a57);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      box-shadow: 0 16px 30px rgba(2, 6, 23, 0.42);
+    }
+
+    .hero h1 { margin: 0 0 6px; font-size: 20px; }
+    .hero p { margin: 0; color: #cbd5e1; font-size: 13px; }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(100px, 1fr));
+      gap: 8px;
+      min-width: 220px;
+    }
+
+    .legend .item {
+      background: #0f172a99;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 8px;
+      text-align: center;
+      font-size: 12px;
+      color: #bae6fd;
+    }
+
+    .grid2 {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: 0 16px 30px rgba(2, 6, 23, 0.38);
+    }
+
+    h3 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      color: #bae6fd;
+    }
+
+    .chart-wrap {
+      position: relative;
+      min-height: 280px;
+      background: #0f172a80;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    td, th {
+      padding: 9px 8px;
+      border-bottom: 1px solid #334155;
+      font-size: 13px;
+      text-align: right;
+    }
+
+    th { color: #93c5fd; }
+
+    tbody tr:hover { background: #1e293b99; }
+
+    @media (max-width: 700px) {
+      .top { flex-wrap: wrap; }
+      .actions { width: 100%; justify-content: flex-end; }
+      .container { padding: 14px; }
+      .chart-wrap { min-height: 240px; }
     }
   </style>
 </head>
 <body>
   <div class="top">
-    <div>کاربر: {{ user.username }}</div>
-    <div style="display:flex; gap:8px; align-items:center;">
+    <div class="meta">
+      <strong>گزارش‌های مدیریتی</strong>
+      <span>کاربر: {{ user.username }}</span>
+    </div>
+    <div class="actions">
       <a href="/">🏠 داشبورد</a>
       <form method="post" action="/logout"><button type="submit">خروج</button></form>
     </div>
   </div>
 
   <div class="container">
+    <div class="hero">
+      <div>
+        <h1>نمای تحلیلی فروش</h1>
+        <p>این بخش اطلاعات کلیدی فروش را برای تصمیم‌گیری سریع‌تر نمایش می‌دهد.</p>
+      </div>
+      <div class="legend">
+        <div class="item">۳۰ روز اخیر</div>
+        <div class="item">تفکیک روش پرداخت</div>
+        <div class="item">تفکیک دسته‌بندی</div>
+        <div class="item">توزیع ساعتی</div>
+      </div>
+    </div>
 
     <div class="card">
       <h3>📈 درآمد روزانه (۳۰ روز اخیر)</h3>
@@ -67,22 +224,22 @@
         <tbody id="dailyTable"></tbody>
       </table>
     </div>
-
   </div>
 
   <script>
-    const PALETTE = [
-      '#89b4fa','#a6e3a1','#fab387','#f38ba8',
-      '#cba6f7','#94e2d5','#f9e2af','#89dceb'
-    ];
+    const PALETTE = ['#38bdf8','#22d3ee','#f59e0b','#fb7185','#a78bfa','#34d399','#facc15','#60a5fa'];
 
-    const daily      = {{ daily_json | safe }};
-    const byPayment  = {{ by_payment_json | safe }};
+    const daily = {{ daily_json | safe }};
+    const byPayment = {{ by_payment_json | safe }};
     const byCategory = {{ by_category_json | safe }};
-    const topCash    = {{ top_cashiers_json | safe }};
-    const hourly     = {{ hourly_json | safe }};
+    const topCash = {{ top_cashiers_json | safe }};
+    const hourly = {{ hourly_json | safe }};
 
-    // ── Daily revenue line chart ─────────────────────────────────────────────
+    const axisCommon = {
+      x: { ticks: { color: '#cbd5e1' }, grid: { color: '#334155' } },
+      y: { ticks: { color: '#cbd5e1' }, grid: { color: '#334155' } }
+    };
+
     new Chart(document.getElementById('chartDaily'), {
       type: 'line',
       data: {
@@ -90,115 +247,83 @@
         datasets: [{
           label: 'درآمد',
           data: daily.map(r => r.revenue).reverse(),
-          borderColor: '#89b4fa',
-          backgroundColor: 'rgba(137,180,250,0.15)',
+          borderColor: '#38bdf8',
+          backgroundColor: 'rgba(56,189,248,0.18)',
           fill: true,
-          tension: 0.3,
-          pointRadius: 3,
+          tension: 0.34,
+          pointRadius: 2,
         }]
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: '#cdd6f4', maxTicksLimit: 10 }, grid: { color: '#45475a' } },
-          y: { ticks: { color: '#cdd6f4' }, grid: { color: '#45475a' } }
-        }
+        scales: axisCommon
       }
     });
 
-    // ── Payment method pie ───────────────────────────────────────────────────
     new Chart(document.getElementById('chartPayment'), {
       type: 'doughnut',
       data: {
         labels: byPayment.map(r => r.payment_method),
-        datasets: [{
-          data: byPayment.map(r => r.revenue),
-          backgroundColor: PALETTE,
-        }]
+        datasets: [{ data: byPayment.map(r => r.revenue), backgroundColor: PALETTE }]
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom', labels: { color: '#cdd6f4', boxWidth: 14 } }
+          legend: { position: 'bottom', labels: { color: '#cbd5e1', boxWidth: 14 } }
         }
       }
     });
 
-    // ── Category bar ─────────────────────────────────────────────────────────
     new Chart(document.getElementById('chartCategory'), {
       type: 'bar',
       data: {
         labels: byCategory.map(r => r.category || 'سایر'),
-        datasets: [{
-          label: 'درآمد',
-          data: byCategory.map(r => r.revenue),
-          backgroundColor: PALETTE,
-        }]
+        datasets: [{ label: 'درآمد', data: byCategory.map(r => r.revenue), backgroundColor: PALETTE }]
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: '#cdd6f4' }, grid: { color: '#45475a' } },
-          y: { ticks: { color: '#cdd6f4' }, grid: { color: '#45475a' } }
-        }
+        scales: axisCommon
       }
     });
 
-    // ── Top cashiers bar ─────────────────────────────────────────────────────
     new Chart(document.getElementById('chartCashiers'), {
       type: 'bar',
       data: {
         labels: topCash.map(r => r.cashier_name),
-        datasets: [{
-          label: 'درآمد',
-          data: topCash.map(r => r.revenue),
-          backgroundColor: '#a6e3a1',
-        }]
+        datasets: [{ label: 'درآمد', data: topCash.map(r => r.revenue), backgroundColor: '#22d3ee' }]
       },
       options: {
         indexAxis: 'y',
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: '#cdd6f4' }, grid: { color: '#45475a' } },
-          y: { ticks: { color: '#cdd6f4' }, grid: { color: '#45475a' } }
-        }
+        scales: axisCommon
       }
     });
 
-    // ── Hourly distribution bar ───────────────────────────────────────────────
     new Chart(document.getElementById('chartHourly'), {
       type: 'bar',
       data: {
-        labels: hourly.map(r => r.hour + ':00'),
-        datasets: [{
-          label: 'سفارشات',
-          data: hourly.map(r => r.orders),
-          backgroundColor: '#fab387',
-        }]
+        labels: hourly.map(r => `${r.hour}:00`),
+        datasets: [{ label: 'سفارشات', data: hourly.map(r => r.orders), backgroundColor: '#f59e0b' }]
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: '#cdd6f4', maxRotation: 45 }, grid: { color: '#45475a' } },
-          y: { ticks: { color: '#cdd6f4' }, grid: { color: '#45475a' } }
-        }
+        scales: axisCommon
       }
     });
 
-    // ── Daily table ──────────────────────────────────────────────────────────
     const tbody = document.getElementById('dailyTable');
     daily.forEach(r => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.day}</td><td>${r.orders}</td><td>${r.revenue.toFixed(2)}</td>`;
+      tr.innerHTML = `<td>${r.day}</td><td>${r.orders}</td><td>${Number(r.revenue).toFixed(2)}</td>`;
       tbody.appendChild(tr);
     });
   </script>
