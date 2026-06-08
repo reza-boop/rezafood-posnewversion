@@ -16,6 +16,7 @@
       --accent: #38bdf8;
       --accent-2: #22d3ee;
       --radius: 14px;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     * { box-sizing: border-box; }
@@ -28,6 +29,7 @@
         radial-gradient(circle at 10% 10%, #0ea5e933, transparent 35%),
         radial-gradient(circle at 90% 90%, #22d3ee22, transparent 30%),
         linear-gradient(160deg, var(--bg), var(--bg-2));
+      animation: bgFloat 18s ease-in-out infinite alternate;
     }
 
     .top {
@@ -59,17 +61,37 @@
       font-weight: 700;
       text-decoration: none;
       cursor: pointer;
-      transition: .2s ease;
+      transition: .25s var(--ease);
+      position: relative;
+      overflow: hidden;
     }
 
     a { color: #cffafe; background: #0e7490; }
     button {
       color: #082f49;
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 10px 20px #22d3ee33;
     }
 
+    a::before,
+    button::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg, transparent 20%, #ffffff40 48%, transparent 75%);
+      transform: translateX(135%);
+      transition: transform 0.45s var(--ease);
+    }
+
+    a:hover::before,
+    button:hover::before { transform: translateX(-40%); }
+
     a:hover,
-    button:hover { transform: translateY(-1px); }
+    button:hover { transform: translateY(-2px); }
+    a:active,
+    button:active { transform: translateY(0) scale(0.99); }
+    a:focus-visible,
+    button:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; }
 
     .container {
       width: min(1220px, 100%);
@@ -89,6 +111,9 @@
       gap: 14px;
       flex-wrap: wrap;
       box-shadow: 0 16px 30px rgba(2, 6, 23, 0.42);
+      opacity: 0;
+      transform: translateY(10px);
+      animation: riseIn 0.55s var(--ease) forwards;
     }
 
     .hero h1 { margin: 0 0 6px; font-size: 20px; }
@@ -123,6 +148,10 @@
       border-radius: var(--radius);
       padding: 14px;
       box-shadow: 0 16px 30px rgba(2, 6, 23, 0.38);
+      opacity: 0;
+      transform: translateY(10px);
+      animation: riseIn 0.5s var(--ease) forwards;
+      animation-delay: 0.12s;
     }
 
     h3 {
@@ -154,13 +183,26 @@
 
     th { color: #93c5fd; }
 
-    tbody tr:hover { background: #1e293b99; }
+    tbody tr { transition: background 0.2s ease, transform 0.2s ease; }
+    tbody tr:hover { background: #1e293b99; transform: translateX(-2px); }
 
     @media (max-width: 700px) {
       .top { flex-wrap: wrap; }
       .actions { width: 100%; justify-content: flex-end; }
       .container { padding: 14px; }
       .chart-wrap { min-height: 240px; }
+    }
+
+    @keyframes riseIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes bgFloat {
+      0% { background-position: 0% 0%, 100% 100%, 0% 0%; }
+      100% { background-position: 6% 4%, 94% 96%, 0% 0%; }
     }
   </style>
 </head>

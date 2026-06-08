@@ -16,6 +16,7 @@
       --accent-2: #22d3ee;
       --success: #22c55e;
       --radius: 14px;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     * { box-sizing: border-box; }
@@ -28,6 +29,7 @@
         radial-gradient(circle at 15% 15%, #0284c733, transparent 35%),
         radial-gradient(circle at 85% 85%, #22d3ee22, transparent 32%),
         linear-gradient(160deg, var(--bg), var(--bg-2));
+      animation: bgFloat 18s ease-in-out infinite alternate;
     }
 
     .top {
@@ -58,22 +60,43 @@
       font-weight: 700;
       cursor: pointer;
       text-decoration: none;
-      transition: .2s ease;
+      transition: .25s var(--ease);
+      position: relative;
+      overflow: hidden;
     }
 
     .link-btn {
       color: #cffafe;
       background: #0e7490;
+      box-shadow: 0 8px 18px #0e749055;
     }
 
-    .link-btn:hover { transform: translateY(-1px); }
+    .link-btn:hover { transform: translateY(-2px); }
 
     button {
       color: #082f49;
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 10px 20px #22d3ee33;
     }
 
-    button:hover { transform: translateY(-1px); box-shadow: 0 8px 16px #22d3ee33; }
+    .link-btn::before,
+    button::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg, transparent 20%, #ffffff40 48%, transparent 75%);
+      transform: translateX(135%);
+      transition: transform 0.45s var(--ease);
+    }
+
+    .link-btn:hover::before,
+    button:hover::before { transform: translateX(-40%); }
+
+    button:hover { transform: translateY(-2px); box-shadow: 0 14px 26px #22d3ee47; }
+    .link-btn:active,
+    button:active { transform: translateY(0) scale(0.99); }
+    .link-btn:focus-visible,
+    button:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; }
 
     .container {
       width: min(1200px, 100%);
@@ -95,7 +118,14 @@
       border-radius: var(--radius);
       padding: 12px;
       box-shadow: 0 12px 26px rgba(2, 6, 23, 0.35);
+      opacity: 0;
+      transform: translateY(8px);
+      animation: riseIn 0.45s var(--ease) forwards;
     }
+
+    .summary .chip:nth-child(2) { animation-delay: 0.05s; }
+    .summary .chip:nth-child(3) { animation-delay: 0.1s; }
+    .summary .chip:nth-child(4) { animation-delay: 0.15s; }
 
     .chip .label { color: var(--muted); font-size: 12px; }
     .chip .value { margin-top: 6px; font-size: 20px; font-weight: 700; }
@@ -115,6 +145,10 @@
       border-radius: var(--radius);
       padding: 14px;
       box-shadow: 0 16px 30px rgba(2, 6, 23, 0.38);
+      opacity: 0;
+      transform: translateY(10px);
+      animation: riseIn 0.5s var(--ease) forwards;
+      animation-delay: 0.12s;
     }
 
     .card h3 {
@@ -141,7 +175,8 @@
 
     th { color: #93c5fd; font-weight: 700; }
 
-    tbody tr:hover { background: #1e293b99; }
+    tbody tr { transition: background 0.2s ease, transform 0.2s ease; }
+    tbody tr:hover { background: #1e293b99; transform: translateX(-2px); }
 
     input,
     select {
@@ -175,6 +210,18 @@
       .top { flex-wrap: wrap; }
       .actions { width: 100%; justify-content: flex-end; }
       .container { padding: 14px; }
+    }
+
+    @keyframes riseIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes bgFloat {
+      0% { background-position: 0% 0%, 100% 100%, 0% 0%; }
+      100% { background-position: 6% 4%, 94% 96%, 0% 0%; }
     }
   </style>
 </head>
