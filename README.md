@@ -66,8 +66,11 @@ Runtime directories (created automatically, excluded from git):
 6. **Run the application**:
 
    ```powershell
-   python app.py
+   python launcher.py
    ```
+
+   This starts the desktop app when tkinter and a graphical session are
+   available, and otherwise falls back to web mode automatically.
 
 ---
 
@@ -117,7 +120,7 @@ sudo apt install python3-tk
 Then run as usual:
 
 ```bash
-python app.py
+python launcher.py
 ```
 
 If you see `ModuleNotFoundError: No module named 'tkinter'`, install tkinter
@@ -131,6 +134,12 @@ You can also run a mobile-friendly web version and open it from Android:
 
 ```bash
 REZAFOOD_WEB_SECRET="change-this-secret" REZAFOOD_WEB_HOST="0.0.0.0" python web_app.py
+```
+
+Or force web mode through the smart launcher:
+
+```bash
+python launcher.py --web
 ```
 
 Then open this address in your phone browser (same Wi-Fi network):

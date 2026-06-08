@@ -156,9 +156,13 @@ def health() -> Dict[str, str]:
     return {"status": "ok"}
 
 
-if __name__ == "__main__":
+def main() -> None:
     app.run(
         host=os.getenv("REZAFOOD_WEB_HOST", "127.0.0.1"),
         port=int(os.getenv("REZAFOOD_WEB_PORT", "8000")),
         debug=False,
     )
+
+
+if __name__ == "__main__":
+    main()

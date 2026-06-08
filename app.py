@@ -21,7 +21,7 @@ def main() -> None:
         print(
             "Tkinter is not installed in this Python environment.\n"
             "Install Tkinter for your OS (for Debian/Ubuntu: sudo apt install python3-tk),\n"
-            "or run the web mode instead with: python web_app.py",
+            "or run the web mode instead with: python launcher.py --web",
             file=sys.stderr,
         )
         raise SystemExit(1) from exc

@@ -22,7 +22,8 @@ dev = [
 ]
 
 [project.scripts]
-rezafood = "app:main"
+rezafood = "launcher:main"
+rezafood-web = "web_app:main"
 
 [tool.pytest.ini_options]
 testpaths   = ["tests"]
