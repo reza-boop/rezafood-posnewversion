@@ -7,29 +7,28 @@ Run with:
 from __future__ import annotations
 
 import sys
-try:
-    import tkinter as tk
-except ModuleNotFoundError as exc:
-    if exc.name == "tkinter":
-        print(
-            "Tkinter is not installed in this Python environment.\n"
-            "Install it (for Debian/Ubuntu: sudo apt install python3-tk),\n"
-            "or run the web mode instead with: python web_app.py",
-            file=sys.stderr,
-        )
-        raise SystemExit(1) from exc
-    raise
 
-from config import APP_NAME
 from db import Database
 from logger import logger
-from ui.login import LoginWindow
-from ui.main import PosApp
 from utils import ensure_dirs
 
 
 def main() -> None:
     """Initialise directories, database, and the Tkinter event loop."""
+    try:
+        import tkinter as tk
+    except ModuleNotFoundError as exc:
+        print(
+            "Tkinter is not installed in this Python environment.\n"
+            "Install Tkinter for your OS (for Debian/Ubuntu: sudo apt install python3-tk),\n"
+            "or run the web mode instead with: python web_app.py",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from exc
+
+    from ui.login import LoginWindow
+    from ui.main import PosApp
+
     ensure_dirs()
     logger.info("RezaFood POS starting up.")
 
