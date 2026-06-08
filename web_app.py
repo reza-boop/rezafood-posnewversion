@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 import secrets
+import sys
+from collections.abc import Sequence
 from typing import Any
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
@@ -11,6 +14,7 @@ from flask import Flask, flash, redirect, render_template, request, session, url
 from config import ORDER_TYPES, PAYMENT_METHODS
 from db import Database
 from logger import logger
+from runtime_bootstrap import resolve_web_bind
 from services.order_service import OrderService
 from services.product_service import ProductService
 from utils import check_password, ensure_dirs
@@ -156,10 +160,28 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Run RezaFood POS web mode")
+    parser.add_argument(
+        "--host",
+        help="Host interface to bind (default from REZAFOOD_WEB_HOST)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        help="TCP port to bind (default from REZAFOOD_WEB_PORT)",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        host, port = resolve_web_bind(args.host, args.port)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(2) from exc
+
     app.run(
-        host=os.getenv("REZAFOOD_WEB_HOST", "127.0.0.1"),
-        port=int(os.getenv("REZAFOOD_WEB_PORT", "8000")),
+        host=host,
+        port=port,
         debug=False,
     )
 

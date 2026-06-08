@@ -7,6 +7,12 @@ import os
 import sys
 from collections.abc import Sequence
 
+from runtime_bootstrap import (
+    NO_GRAPHICAL_DISPLAY_REASON,
+    TKINTER_MISSING_REASON,
+    desktop_unavailable_message,
+)
+
 
 def _tkinter_available() -> bool:
     try:
@@ -32,15 +38,15 @@ def choose_mode(preferred_mode: str | None = None) -> tuple[str, str | None]:
 
     if mode == "desktop":
         if not _tkinter_available():
-            return "desktop", "Tkinter is not installed in this Python environment."
+            return "desktop", TKINTER_MISSING_REASON
         if not _has_graphical_display():
-            return "desktop", "No graphical desktop session was detected."
+            return "desktop", NO_GRAPHICAL_DISPLAY_REASON
         return "desktop", None
 
     if not _tkinter_available():
-        return "web", "Tkinter is not installed in this Python environment."
+        return "web", TKINTER_MISSING_REASON
     if not _has_graphical_display():
-        return "web", "No graphical desktop session was detected."
+        return "web", NO_GRAPHICAL_DISPLAY_REASON
     return "desktop", None
 
 
@@ -50,10 +56,15 @@ def _run_desktop() -> None:
     desktop_main()
 
 
-def _run_web() -> None:
+def _run_web(host: str | None = None, port: int | None = None) -> None:
     from web_app import main as web_main
 
-    web_main()
+    web_args: list[str] = []
+    if host:
+        web_args.extend(["--host", host])
+    if port is not None:
+        web_args.extend(["--port", str(port)])
+    web_main(web_args)
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -68,6 +79,15 @@ def main(argv: Sequence[str] | None = None) -> None:
         action="store_true",
         help="Force web mode",
     )
+    parser.add_argument(
+        "--host",
+        help="Web host (used in web mode, default from REZAFOOD_WEB_HOST)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        help="Web port (used in web mode, default from REZAFOOD_WEB_PORT)",
+    )
     args = parser.parse_args(argv)
 
     preferred_mode: str | None = None
@@ -81,19 +101,14 @@ def main(argv: Sequence[str] | None = None) -> None:
     mode, reason = choose_mode(preferred_mode)
     if mode == "desktop":
         if reason:
-            print(
-                f"{reason}\n"
-                "Install Tkinter for your OS (for Debian/Ubuntu: sudo apt install python3-tk),\n"
-                "or run the web mode instead with: python launcher.py --web",
-                file=sys.stderr,
-            )
+            print(desktop_unavailable_message(reason), file=sys.stderr)
             raise SystemExit(1)
         _run_desktop()
         return
 
     if reason:
         print(f"{reason}\nStarting web mode instead.", file=sys.stderr)
-    _run_web()
+    _run_web(args.host, args.port)
 
 
 if __name__ == "__main__":

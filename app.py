@@ -10,6 +10,7 @@ import sys
 
 from db import Database
 from logger import logger
+from runtime_bootstrap import TKINTER_MISSING_REASON, desktop_unavailable_message
 from utils import ensure_dirs
 
 
@@ -18,12 +19,7 @@ def main() -> None:
     try:
         import tkinter as tk
     except ModuleNotFoundError as exc:
-        print(
-            "Tkinter is not installed in this Python environment.\n"
-            "Install Tkinter for your OS (for Debian/Ubuntu: sudo apt install python3-tk),\n"
-            "or run the web mode instead with: python launcher.py --web",
-            file=sys.stderr,
-        )
+        print(desktop_unavailable_message(TKINTER_MISSING_REASON), file=sys.stderr)
         raise SystemExit(1) from exc
 
     from ui.login import LoginWindow

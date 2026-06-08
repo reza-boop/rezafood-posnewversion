@@ -1,7 +1,7 @@
 # RezaFood POS v11.3
 
 A modular **Tkinter + SQLite** Point-of-Sale application for Windows (also
-runs on macOS and Linux with Python 3.10+).
+runs on macOS and Linux with Python 3.9+).
 
 ---
 
@@ -61,6 +61,12 @@ Runtime directories (created automatically, excluded from git):
 
    ```powershell
    pip install -r requirements.txt
+   ```
+
+   Or, if you prefer package-managed project metadata:
+
+   ```powershell
+   pip install -e ".[dev]"
    ```
 
 6. **Run the application**:
@@ -133,13 +139,19 @@ for your distro first (for Debian/Ubuntu: `sudo apt install python3-tk`).
 You can also run a mobile-friendly web version and open it from Android:
 
 ```bash
-REZAFOOD_WEB_SECRET="change-this-secret" REZAFOOD_WEB_HOST="0.0.0.0" python web_app.py
+REZAFOOD_WEB_SECRET="change-this-secret" python web_app.py --host 0.0.0.0 --port 8000
 ```
 
 Or force web mode through the smart launcher:
 
 ```bash
 python launcher.py --web
+```
+
+Or force desktop mode explicitly:
+
+```bash
+python launcher.py --desktop
 ```
 
 Then open this address in your phone browser (same Wi-Fi network):

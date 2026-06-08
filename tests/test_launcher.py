@@ -58,7 +58,7 @@ class TestMain:
         monkeypatch.setattr(
             launcher,
             "_run_web",
-            lambda: called.__setitem__("web", called["web"] + 1),
+            lambda *args, **kwargs: called.__setitem__("web", called["web"] + 1),
         )
 
         launcher.main([])
@@ -81,3 +81,17 @@ class TestMain:
         captured = capsys.readouterr()
         assert exc_info.value.code == 1
         assert "Tkinter is not installed" in captured.err
+
+    def test_main_forwards_web_host_and_port(self, monkeypatch):
+        captured: dict[str, object] = {}
+
+        monkeypatch.setattr(launcher, "choose_mode", lambda preferred_mode=None: ("web", None))
+        monkeypatch.setattr(
+            launcher,
+            "_run_web",
+            lambda host=None, port=None: captured.update({"host": host, "port": port}),
+        )
+
+        launcher.main(["--web", "--host", "0.0.0.0", "--port", "9000"])
+
+        assert captured == {"host": "0.0.0.0", "port": 9000}
